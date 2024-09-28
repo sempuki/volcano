@@ -4,8 +4,8 @@
 
 namespace volc::lib {
 
-TEST_CASE("Resources") {
-  Factory factory;
+TEST_CASE("Application") {
+  Application application{"test-app"};
 
   SECTION("ShouldPass") {
     REQUIRE(true);

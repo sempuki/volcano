@@ -1,10 +1,21 @@
 #pragma once
 
+#include <string>
+#include <string_view>
+
 #include "lib/base.hpp"
 
 namespace volc::lib {
+namespace impl {
+inline ::VkApplicationInfo MakeApplicationInfo() {
+  return ::VkApplicationInfo{.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO};
+}
+inline ::VkInstanceCreateInfo MakeInstanceInfo() {
+  return ::VkInstanceCreateInfo{.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+}
+}  // namespace impl
 
-class Factory;
+class Application;
 
 class Instance final {
  public:
@@ -15,18 +26,33 @@ class Instance final {
   ~Instance() = default;
 
  private:
-  VkInstance instance_{};
+  friend class Application;
+
+  explicit Instance(const VkApplicationInfo* app_info) {
+    auto _ = impl::MakeInstanceInfo();
+    _.pApplicationInfo = app_info;
+  }
+
+  ::VkInstance instance_{};
 };
 
-class Factory final {
+class Application final {
  public:
-  DECLARE_COPY_DELETE(Factory);
-  DECLARE_MOVE_DEFAULT(Factory);
+  DECLARE_COPY_DELETE(Application);
+  DECLARE_MOVE_DEFAULT(Application);
 
-  Factory() = default;
-  ~Factory() = default;
+  explicit Application(std::string_view name) : info_{impl::MakeApplicationInfo()}, name_{name} {
+    info_.pApplicationName = name_.c_str();
+  }
+
+  Application() = delete;
+  ~Application() = default;
+
+  Instance CreateInstance() { return Instance{std::addressof(info_)}; }
 
  private:
+  ::VkApplicationInfo info_;
+  std::string name_;
 };
 
 }  // namespace volc::lib
