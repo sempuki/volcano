@@ -45,23 +45,19 @@
 
 namespace volc::lib {
 
-struct Unused {};
-inline constexpr Unused unused;
-
 template <typename Type>
-class CheckedArgument {
+class CheckedPointer {
  public:
-  DECLARE_COPY_DEFAULT(CheckedArgument);
-  DECLARE_MOVE_DEFAULT(CheckedArgument);
+  DECLARE_COPY_DEFAULT(CheckedPointer);
+  DECLARE_MOVE_DEFAULT(CheckedPointer);
 
-  CheckedArgument() = delete;
-  ~CheckedArgument() = default;
+  CheckedPointer() = delete;
+  ~CheckedPointer() = default;
 
-  CheckedArgument(Unused) {}
-  explicit CheckedArgument(Type& value) : arg_{&value} {}
+  explicit CheckedPointer(Type& value) : arg_{&value} {}
   template <typename Derived>
     requires(std::is_base_of_v<Type, Derived> && !std::is_same_v<Type, Derived>)
-  CheckedArgument(CheckedArgument<Derived> that) : arg_{that.get()} {}
+  CheckedPointer(CheckedPointer<Derived> that) : arg_{that.get()} {}
 
   explicit operator bool() const { return arg_; }
 
@@ -82,6 +78,9 @@ class CheckedArgument {
   Type* arg_ = nullptr;
 };
 
+struct Unused {};
+inline constexpr Unused unused;
+
 // Out argument:
 // - May be explicitly initialized.
 // - May be implicitly unused.
@@ -90,11 +89,22 @@ class CheckedArgument {
 // - May *not* manage lifetimes.
 // - May *not* be converted to InOut.
 template <typename Type>
-class Out : public CheckedArgument<Type> {
-  using BaseType = CheckedArgument<Type>;
+class Out : public CheckedPointer<Type> {
+  using BaseType = CheckedPointer<Type>;
 
  public:
-  using BaseType::BaseType;
+  DECLARE_COPY_DEFAULT(Out);
+  DECLARE_MOVE_DEFAULT(Out);
+
+  Out() = delete;
+  ~Out() = default;
+
+  Out(Unused) {}
+  explicit Out(Type& value) : Out<Type>{value} {}
+
+  template <typename Derived>
+    requires(std::is_base_of_v<Type, Derived> && !std::is_same_v<Type, Derived>)
+  Out(Out<Derived> that) : BaseType{that} {}
 };
 
 // In-out argument:
