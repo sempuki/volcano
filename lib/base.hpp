@@ -42,3 +42,110 @@
   CHECK_CONTRACT__(postcondition__, "Postcondition")
 #define CHECK_INVARIANT(invariant__) CHECK_CONTRACT__(invariant__, "Invariant")
 #define CHECK_UNREACHABLE() CHECK_CONTRACT__(false, "Unreachable")
+
+namespace volc::lib {
+
+struct Unused {};
+inline constexpr Unused unused;
+
+template <typename Type>
+class CheckedArgument {
+ public:
+  DECLARE_COPY_DEFAULT(CheckedArgument);
+  DECLARE_MOVE_DEFAULT(CheckedArgument);
+
+  CheckedArgument() = delete;
+  ~CheckedArgument() = default;
+
+  CheckedArgument(Unused) {}
+  explicit CheckedArgument(Type& value) : arg_{&value} {}
+  template <typename Derived>
+    requires(std::is_base_of_v<Type, Derived> && !std::is_same_v<Type, Derived>)
+  CheckedArgument(CheckedArgument<Derived> that) : arg_{that.get()} {}
+
+  explicit operator bool() const { return arg_; }
+
+  Type& operator*() const {
+    CHECK_PRECONDITION(arg_);
+    return *arg_;
+  }
+  Type* operator->() const {
+    CHECK_PRECONDITION(arg_);
+    return arg_;
+  }
+  Type* get() const {
+    CHECK_PRECONDITION(arg_);
+    return arg_;
+  }
+
+ protected:
+  Type* arg_ = nullptr;
+};
+
+// Out argument:
+// - May be explicitly initialized.
+// - May be implicitly unused.
+// - May upcast.
+// - May be forwarded by copy/move.
+// - May *not* manage lifetimes.
+// - May *not* be converted to InOut.
+template <typename Type>
+class Out : public CheckedArgument<Type> {
+  using BaseType = CheckedArgument<Type>;
+
+ public:
+  using BaseType::BaseType;
+};
+
+// In-out argument:
+// - Must be explicitly initialized.
+// - May *not* be unused.
+// - May upcast.
+// - May be forwarded by copy/move.
+// - May *not* manage lifetimes.
+// - May be converted to Out.
+template <typename Type>
+class InOut : public Out<Type> {
+  using BaseType = Out<Type>;
+
+ public:
+  DECLARE_COPY_DEFAULT(InOut);
+  DECLARE_MOVE_DEFAULT(InOut);
+
+  InOut() = delete;
+  ~InOut() = default;
+
+  explicit InOut(Type& value) : Out<Type>{value} {
+    CHECK_INVARIANT(this->arg_);
+  }
+
+  template <typename Derived>
+    requires(std::is_base_of_v<Type, Derived> && !std::is_same_v<Type, Derived>)
+  InOut(InOut<Derived> that) : BaseType{that} {
+    CHECK_INVARIANT(this->arg_);
+  }
+};
+
+// Class member dependency:
+// - Must be explicitly initialized.
+// - May *not* be unused.
+// - May upcast.
+// - May be forwarded by copy/move.
+// - May *not* manage lifetimes.
+// - May be converted to InOut.
+template <typename Type>
+class Depend final : public InOut<Type> {
+  using BaseType = InOut<Type>;
+
+ public:
+  using BaseType::BaseType;
+};
+
+template <typename T>
+Out(T& value) -> Out<T>;
+template <typename T>
+InOut(T& value) -> InOut<T>;
+template <typename T>
+Depend(T& value) -> Depend<T>;
+
+}  // namespace volc::lib
