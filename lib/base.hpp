@@ -32,7 +32,7 @@
   if (!(condition__)) [[unlikely]] {                                 \
     const auto current_location__ = std::source_location::current(); \
     throw std::logic_error(std::format(                              \
-        "[{}:{}] Failed {}: {}", current_location__.file_name(),     \
+        "[{}] {} Failed {}: {}", current_location__.file_name(),     \
         current_location__.function_name(), kind__, #condition__));  \
   }
 
