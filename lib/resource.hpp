@@ -49,15 +49,15 @@ class Application final {
   DECLARE_COPY_DELETE(Application);
   DECLARE_MOVE_DEFAULT(Application);
 
-  enum class DebugSeverity { ERROR, WARNING, INFO, VERBOSE };
+  enum class DebugSeverity { UNKNOWN, ERROR, WARNING, INFO, VERBOSE };
 
   explicit Application(std::string_view name, std::uint32_t version,
-                       DebugSeverity debug_severity)
+                       DebugSeverity severity)
       : name_{name} {
     info_.pApplicationName = name_.c_str();
     info_.applicationVersion = version;
 
-    debug_.messageSeverity = ConvertDebugSeverity(debug_severity);
+    debug_.messageSeverity = ConvertDebugSeverity(severity);
   }
 
   Application() = delete;
