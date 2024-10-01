@@ -2,9 +2,12 @@
 
 #include <vulkan/vulkan.h>
 
+static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
+
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <iostream>
 #include <memory>
 #include <source_location>
 #include <utility>
@@ -51,7 +54,7 @@ class CheckedPointer {
   DECLARE_COPY_DEFAULT(CheckedPointer);
   DECLARE_MOVE_DEFAULT(CheckedPointer);
 
-  CheckedPointer() = delete;
+  CheckedPointer() = default;
   ~CheckedPointer() = default;
 
   explicit CheckedPointer(Type& value) : arg_{&value} {}
@@ -100,7 +103,7 @@ class Out : public CheckedPointer<Type> {
   ~Out() = default;
 
   Out(Unused) {}
-  explicit Out(Type& value) : Out<Type>{value} {}
+  explicit Out(Type& value) : BaseType{value} {}
 
   template <typename Derived>
     requires(std::is_base_of_v<Type, Derived> && !std::is_same_v<Type, Derived>)
@@ -125,9 +128,7 @@ class InOut : public Out<Type> {
   InOut() = delete;
   ~InOut() = default;
 
-  explicit InOut(Type& value) : Out<Type>{value} {
-    CHECK_INVARIANT(this->arg_);
-  }
+  explicit InOut(Type& value) : BaseType{value} { CHECK_INVARIANT(this->arg_); }
 
   template <typename Derived>
     requires(std::is_base_of_v<Type, Derived> && !std::is_same_v<Type, Derived>)
