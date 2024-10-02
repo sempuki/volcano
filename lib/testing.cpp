@@ -5,7 +5,7 @@
 #include <iomanip>
 #include <iostream>
 
-namespace volc::lib {
+namespace volc {
 
 constexpr const std::string_view test_marker{"\033[1;34m=\033[0m"};
 constexpr const std::string_view section_marker{"\033[1;33m-\033[0m"};
@@ -13,9 +13,7 @@ constexpr const std::string_view result_marker{"\033[1;33m*\033[0m"};
 constexpr const std::string_view passed{"\033[1;32mPASSED\033[0m."};
 constexpr const std::string_view failed{"\033[1;31mFAILED\033[0m."};
 
-std::string SummaryReporter::getDescription() {
-  return "Summary reporter";
-}
+std::string SummaryReporter::getDescription() { return "Summary reporter"; }
 
 void SummaryReporter::testRunStarting(Catch::TestRunInfo const& info) {
   report_.emplace_back();
@@ -68,4 +66,4 @@ void SummaryReporter::assertionEnded(Catch::AssertionStats const& stats) {}
 
 CATCH_REGISTER_LISTENER(SummaryReporter)
 
-}  // namespace volc::lib
+}  // namespace volc

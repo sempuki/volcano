@@ -7,9 +7,10 @@ static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
 #include <cstddef>
 #include <cstdint>
 #include <format>
-#include <iostream>
 #include <memory>
 #include <source_location>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #define DECLARE_COPY_DEFAULT(class_name__)              \
@@ -46,7 +47,7 @@ static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
 #define CHECK_INVARIANT(invariant__) CHECK_CONTRACT__(invariant__, "Invariant")
 #define CHECK_UNREACHABLE() CHECK_CONTRACT__(false, "Unreachable")
 
-namespace volc::lib {
+namespace volc {
 
 template <typename Type>
 class CheckedPointer {
@@ -159,4 +160,4 @@ InOut(T& value) -> InOut<T>;
 template <typename T>
 Depend(T& value) -> Depend<T>;
 
-}  // namespace volc::lib
+}  // namespace volc

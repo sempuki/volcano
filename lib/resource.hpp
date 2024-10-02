@@ -1,12 +1,12 @@
 #pragma once
 
-#include <string>
-#include <string_view>
+#include <algorithm>
+#include <iostream>
 #include <vector>
 
 #include "lib/base.hpp"
 
-namespace volc::lib {
+namespace volc {
 namespace impl {
 
 inline auto MakeApplicationInfo() {
@@ -207,7 +207,7 @@ class Instance final {
   static VKAPI_ATTR ::VkBool32 DebugMessengerCallback(
       ::VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
       ::VkDebugUtilsMessageTypeFlagsEXT message_types,
-      const ::VkDebugUtilsMessengerCallbackDataEXT* data, void*) {
+      const ::VkDebugUtilsMessengerCallbackDataEXT* data, void*) noexcept {
     CHECK_PRECONDITION(
         data->sType ==
         VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT);
@@ -295,4 +295,4 @@ class Application final {
   std::string name_;
 };
 
-}  // namespace volc::lib
+}  // namespace volc

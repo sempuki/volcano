@@ -2,7 +2,7 @@
 
 #include "lib/testing.hpp"
 
-namespace volc::lib {
+namespace volc {
 
 TEST_CASE("Application") {
   Application application{"test-app", 0};
@@ -10,4 +10,4 @@ TEST_CASE("Application") {
   SECTION("ShouldPass") { REQUIRE(true); }
 }
 
-}  // namespace volc::lib
+}  // namespace volc
