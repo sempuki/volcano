@@ -38,6 +38,19 @@ cc_test(
 
 #-------------------------------------------------------------------------------
 
+cc_test(
+    name = "integration_test",
+    srcs = ["integration_test.cpp"],
+    deps = [
+        ":glfw_window",
+        ":render",
+        ":resource",
+        ":testing",
+    ],
+)
+
+#-------------------------------------------------------------------------------
+
 cc_library(
     name = "render",
     hdrs = ["render.hpp"],

@@ -23,8 +23,8 @@ class StaticInitialization final {
 
   StaticInitialization() {
     ::glfwSetErrorCallback(ErrorCallback);
-    initialized_ = ::glfwInit() &&  //
-                   ::glfwVulkanSupported();
+    initialized_ = ::glfwInit() == GLFW_TRUE &&  //
+                   ::glfwVulkanSupported() == GLFW_TRUE;
     CHECK_POSTCONDITION(initialized_);
   }
 
@@ -115,6 +115,13 @@ class PlatformWindow final : public Window {
     ::glfwSetFramebufferSizeCallback(glfw_window_, FrameBufferSizeCallback);
     ::glfwSetWindowRefreshCallback(glfw_window_, WindowRefreshCallback);
     ::glfwSetKeyCallback(glfw_window_, KeyCallback);
+  }
+
+  std::span<const char*> RequiredExtensions() const {
+    std::uint32_t count = 0;
+    const char** extensions =
+        ::glfwGetRequiredInstanceExtensions(std::addressof(count));
+    return {extensions, count};
   }
 
   ::VkSurfaceKHR CreateSurface(::VkInstance instance) {
