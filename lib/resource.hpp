@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <functional>
-#include <iostream>
 #include <map>
 #include <sstream>
 #include <vector>
@@ -63,12 +62,24 @@ inline const PropertyType* TryFindPropertyIf(
   return nullptr;
 }
 
-inline bool HasLayerProperty(const std::vector<::VkLayerProperties>& properties,
-                             std::string_view layer_name) {
-  return std::any_of(
-      properties.begin(), properties.end(),
-      [layer_name](const ::VkLayerProperties& property) {
+inline bool HasLayerProperty(                              //
+    const std::vector<::VkLayerProperties>& properties,    //
+    std::string_view layer_name) {                         //
+  return std::any_of(                                      //
+      properties.begin(), properties.end(),                //
+      [layer_name](const ::VkLayerProperties& property) {  //
         return static_cast<std::string_view>(property.layerName) == layer_name;
+      });
+}
+
+inline bool HasExtensionProperty(                                  //
+    const std::vector<::VkExtensionProperties>& properties,        //
+    std::string_view extension_name) {                             //
+  return std::any_of(                                              //
+      properties.begin(), properties.end(),                        //
+      [extension_name](const ::VkExtensionProperties& property) {  //
+        return static_cast<std::string_view>(property.extensionName) ==
+               extension_name;
       });
 }
 
@@ -140,7 +151,7 @@ inline std::string ConvertToString(::VkQueueFlags flags) {
 }
 
 constexpr const char* VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
-constexpr const char* DEBUG_EXTENSION_NAME = "VK_EXT_debug_utils";
+constexpr const char* DEBUG_EXTENSION_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 constexpr const char* DEBUG_CREATE_FUNCTION_NAME =
     "vkCreateDebugUtilsMessengerEXT";
 constexpr const char* DEBUG_DESTROY_FUNCTION_NAME =
@@ -204,6 +215,8 @@ class Instance final {
     return VK_NULL_HANDLE;
   }
 
+  ::VkInstance Handle() const { return instance_; }
+
  private:
   friend class Application;
 
@@ -213,24 +226,33 @@ class Instance final {
                     DebugLevel debug_level)
       : layers_{std::move(layers)}, extensions_{std::move(extensions)} {
     instance_info_.pApplicationInfo = app_info;
+
+    if (debug_level != DebugLevel::NONE &&
+        impl::HasStringName(extensions_, impl::DEBUG_EXTENSION_NAME)) {
+      instance_info_.pNext = std::addressof(debug_messenger_info_);
+
+      debug_messenger_info_.messageSeverity =
+          ConvertToDebugSeverity(debug_level);
+      debug_messenger_info_.messageType =
+          VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+          VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+          VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+      debug_messenger_info_.pfnUserCallback = DebugMessengerCallback;
+    }
+
     instance_info_.enabledLayerCount = layers_.size();
     instance_info_.ppEnabledLayerNames = layers_.data();
     instance_info_.enabledExtensionCount = extensions_.size();
     instance_info_.ppEnabledExtensionNames = extensions_.data();
 
-    if (debug_level != DebugLevel::NONE) {
-      if (impl::HasStringName(extensions_, impl::DEBUG_EXTENSION_NAME)) {
-        instance_info_.pNext = std::addressof(debug_messenger_info_);
-        debug_messenger_info_.messageSeverity =
-            ConvertToDebugSeverity(debug_level);
-        debug_messenger_info_.messageType =
-            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        debug_messenger_info_.pfnUserCallback = DebugMessengerCallback;
-      } else {
-        std::cerr << "Missing debug extension.";
-      }
+    std::print("Requested Layers: \n");
+    for (auto&& layer : layers_) {
+      std::print(" == {}\n", layer);
+    }
+
+    std::print("Requested Extensions: \n");
+    for (auto&& extension : extensions_) {
+      std::print(" -- {}\n", extension);
     }
 
     ::VkResult result =
@@ -238,45 +260,41 @@ class Instance final {
                            std::addressof(instance_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
-    if (debug_level != DebugLevel::NONE) {
-      if (impl::HasStringName(extensions_, impl::DEBUG_EXTENSION_NAME)) {
-        impl::LoadInstanceFunction(impl::DEBUG_CREATE_FUNCTION_NAME, instance_,
-                                   Out(create_debug_messenger_));
-        impl::LoadInstanceFunction(impl::DEBUG_DESTROY_FUNCTION_NAME, instance_,
-                                   Out(destroy_debug_messenger_));
-        impl::LoadInstanceFunction(impl::DEBUG_SUBMIT_FUNCTION_NAME, instance_,
-                                   Out(submit_debug_message_));
+    if (debug_level != DebugLevel::NONE &&
+        impl::HasStringName(extensions_, impl::DEBUG_EXTENSION_NAME)) {
+      impl::LoadInstanceFunction(impl::DEBUG_CREATE_FUNCTION_NAME, instance_,
+                                 Out(create_debug_messenger_));
+      impl::LoadInstanceFunction(impl::DEBUG_DESTROY_FUNCTION_NAME, instance_,
+                                 Out(destroy_debug_messenger_));
+      impl::LoadInstanceFunction(impl::DEBUG_SUBMIT_FUNCTION_NAME, instance_,
+                                 Out(submit_debug_message_));
 
-        ::VkResult result = create_debug_messenger_(
-            instance_, std::addressof(debug_messenger_info_), impl::ALLOCATOR,
-            std::addressof(debug_messenger_));
-        CHECK_POSTCONDITION(result == VK_SUCCESS);
-        CHECK_POSTCONDITION(debug_messenger_ != VK_NULL_HANDLE);
-      } else {
-        std::cerr << "Missing debug extension.";
-      }
+      ::VkResult result = create_debug_messenger_(
+          instance_, std::addressof(debug_messenger_info_), impl::ALLOCATOR,
+          std::addressof(debug_messenger_));
+      CHECK_POSTCONDITION(result == VK_SUCCESS);
+      CHECK_POSTCONDITION(debug_messenger_ != VK_NULL_HANDLE);
     }
 
     impl::MaybeEnumerateProperties(
         std::bind_front(::vkEnumeratePhysicalDevices, instance_),
         InOut(devices_));
 
+    std::print("Physical Devices: \n");
     for (auto&& device : devices_) {
       ::vkGetPhysicalDeviceProperties(
           device, std::addressof(device_properties_[device]));
-      std::cout << "Physical Device Name: "
-                << device_properties_[device].deviceName << " ["
-                << impl::ConvertToString(device_properties_[device].deviceType)
-                << "]\n";
+      std::print(" ** {} [{}]\n", device_properties_[device].deviceName,
+                 impl::ConvertToString(device_properties_[device].deviceType));
 
       impl::MaybeEnumerateProperties(
           std::bind_front(::vkGetPhysicalDeviceQueueFamilyProperties, device),
           InOut(queue_family_properties_[device]));
 
-      std::cout << "Queue Family Flags: \n";
+      std::print("Queue Family Flags: \n");
       for (auto&& property : queue_family_properties_[device]) {
-        std::cout << "--  [" << property.queueCount << "] "
-                  << impl::ConvertToString(property.queueFlags) << '\n';
+        std::print(" -- [{}] {}\n", property.queueCount,
+                   impl::ConvertToString(property.queueFlags));
       }
     }
   }
@@ -331,23 +349,22 @@ class Instance final {
         data->sType ==
         VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT);
 
-    std::cout << "Message Id Name: " << data->pMessageIdName << std::endl;
-    std::cout << "Message : " << data->pMessage << std::endl;
-    std::cout << "Queue Labels: \n";
-    for (std::uint32_t i = 0; i < data->queueLabelCount; ++i) {
-      const ::VkDebugUtilsLabelEXT& _ = data->pQueueLabels[i];
-      std::cout << "..  " << _.pLabelName << '\n';
-    }
-    std::cout << "Command Buffer Labels: \n";
-    for (std::uint32_t i = 0; i < data->cmdBufLabelCount; ++i) {
-      const ::VkDebugUtilsLabelEXT& _ = data->pCmdBufLabels[i];
-      std::cout << "::  " << _.pLabelName << '\n';
-    }
-    std::cout << "Object Names: \n";
-    for (std::uint32_t i = 0; i < data->objectCount; ++i) {
-      const ::VkDebugUtilsObjectNameInfoEXT& _ = data->pObjects[i];
-      std::cout << "**  " << _.pObjectName << '\n';
-    }
+    std::print("[{}] {}\n", data->pMessageIdName, data->pMessage);
+    // std::cout << "Queue Labels: \n";
+    // for (std::uint32_t i = 0; i < data->queueLabelCount; ++i) {
+    //   const ::VkDebugUtilsLabelEXT& _ = data->pQueueLabels[i];
+    //   std::cout << " .. " << _.pLabelName << '\n';
+    // }
+    // std::cout << "Command Buffer Labels: \n";
+    // for (std::uint32_t i = 0; i < data->cmdBufLabelCount; ++i) {
+    //   const ::VkDebugUtilsLabelEXT& _ = data->pCmdBufLabels[i];
+    //   std::cout << " :: " << _.pLabelName << '\n';
+    // }
+    // std::cout << "Object Names: \n";
+    // for (std::uint32_t i = 0; i < data->objectCount; ++i) {
+    //   const ::VkDebugUtilsObjectNameInfoEXT& _ = data->pObjects[i];
+    //   std::cout << " ** " << _.pObjectName << '\n';
+    // }
     return VK_FALSE;
   }
 };
@@ -372,35 +389,42 @@ class Application final {
     }
 
     for (auto&& property : supported_layers_) {
-      std::cout << "Supported Instance Layer: " << property.layerName
-                << std::endl;
+      std::print("Supported Instance Layer: {}\n", property.layerName);
     }
 
     for (auto&& property : supported_extensions_) {
-      std::cout << "Supported Instance Extension: " << property.extensionName
-                << std::endl;
+      std::print("Supported Instance Extension: {}\n", property.extensionName);
     }
 
     info_.pApplicationName = name_.c_str();
     info_.applicationVersion = version;
   }
 
-  Instance CreateInstance(DebugLevel debug_level = DebugLevel::NONE) {
-    std::vector<const char*> requested_layers;
-    std::vector<const char*> requested_extensions{
-        VK_KHR_SURFACE_EXTENSION_NAME,  //
-        // VK_KHR_XCB_SURFACE_EXTENSION_NAME,  //
-        VK_EXT_DEBUG_UTILS_EXTENSION_NAME  //
-    };
+  Instance CreateInstance(std::span<const char*> requested_layers = {},
+                          std::span<const char*> requested_extensions = {},
+                          DebugLevel debug_level = DebugLevel::NONE) {
+    std::vector<const char*> layers{requested_layers.begin(),
+                                    requested_layers.end()};
+    std::vector<const char*> extensions{requested_extensions.begin(),
+                                        requested_extensions.end()};
 
     if (impl::HasLayerProperty(supported_layers_,
                                impl::VALIDATION_LAYER_NAME)) {
-      requested_layers.push_back(impl::VALIDATION_LAYER_NAME);
+      layers.push_back(impl::VALIDATION_LAYER_NAME);
     }
 
-    return Instance{std::addressof(info_),            //
-                    std::move(requested_layers),      //
-                    std::move(requested_extensions),  //
+    if (debug_level != DebugLevel::NONE) {
+      if (impl::HasExtensionProperty(supported_extensions_,
+                                     impl::DEBUG_EXTENSION_NAME)) {
+        extensions.push_back(impl::DEBUG_EXTENSION_NAME);
+      } else {
+        std::cerr << "Missing debug extension: " << impl::DEBUG_EXTENSION_NAME;
+      }
+    }
+
+    return Instance{std::addressof(info_),  //
+                    std::move(layers),      //
+                    std::move(extensions),  //
                     debug_level};
   }
 
