@@ -1,7 +1,5 @@
 #pragma once
 
-#include <queue>
-
 #include "lib/base.hpp"
 
 namespace volc {
@@ -24,17 +22,17 @@ class Window {
   explicit Window(std::string_view title, Geometry geometry)
       : title_{title}, geometry_{geometry} {}
 
-  std::string_view Title() const { return title_; }
-  Geometry Geometry() const { return geometry_; }
+  std::string_view title() const { return title_; }
+  Geometry geometry() const { return geometry_; }
 
-  void SetRenderer(std::unique_ptr<Renderer> renderer) {
+  void set_renderer(std::unique_ptr<Renderer> renderer) {
     renderer_ = std::move(renderer);
   }
 
  protected:
-  Renderer& Renderer() {
+  Renderer& renderer() {
     CHECK_PRECONDITION(renderer_);
-    return *renderer;
+    return *renderer_;
   }
 
   std::string title_;
