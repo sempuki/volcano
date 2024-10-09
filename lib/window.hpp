@@ -24,15 +24,15 @@ class Window {
   explicit Window(std::string_view title, Geometry geometry)
       : title_{title}, geometry_{geometry} {}
 
-  std::string_view title() const { return title_; }
-  Geometry geometry() const { return geometry_; }
+  std::string_view Title() const { return title_; }
+  Geometry Geometry() const { return geometry_; }
 
-  void set_renderer(std::unique_ptr<Renderer> renderer) {
+  void SetRenderer(std::unique_ptr<Renderer> renderer) {
     renderer_ = std::move(renderer);
   }
 
  protected:
-  Renderer& renderer() {
+  Renderer& Renderer() {
     CHECK_PRECONDITION(renderer_);
     return *renderer;
   }

@@ -7,10 +7,12 @@ static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
 #include <cstddef>
 #include <cstdint>
 #include <format>
+#include <functional>
 #include <memory>
 #include <source_location>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #define DECLARE_COPY_DEFAULT(class_name__)              \
@@ -159,5 +161,31 @@ template <typename T>
 InOut(T& value) -> InOut<T>;
 template <typename T>
 Depend(T& value) -> Depend<T>;
+
+template <class... CallableTypes>
+struct Overloaded : CallableTypes... {
+  using CallableTypes::operator()...;
+};
+
+template <class... Ts>
+Overloaded(Ts...) -> Overloaded<Ts...>;
+
+template <typename CallableType, typename... ArgumentTypes,
+          typename ContinuationType>
+void InvokeWithContinuation(ContinuationType&& continuation,
+                            CallableType&& callable,
+                            ArgumentTypes&&... arguments) {
+  using CallableResultType =
+      std::invoke_result_t<CallableType, ArgumentTypes...>;
+
+  if constexpr (std::is_invocable_v<ContinuationType, CallableResultType>) {
+    std::invoke(
+        continuation,
+        std::invoke(callable, std::forward<ArgumentTypes>(arguments)...));
+  } else {
+    std::invoke(callable, std::forward<ArgumentTypes>(arguments)...);
+    std::invoke(continuation);
+  }
+}
 
 }  // namespace volc
