@@ -10,7 +10,7 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-namespace volc::GLFW {
+namespace volc::glfw {
 
 class PlatformWindow;
 
@@ -48,9 +48,13 @@ class StaticInitialization final {
     std::string description;
   };
 
-  static std::queue<Error> pending_errors_;
+  static std::queue<Error>& pending_errors() {
+    static std::queue<Error> pending_errors_;
+    return pending_errors_;
+  }
+
   static void ErrorCallback(int error, const char* description) {
-    pending_errors_.push_back({.error = error, .description = description});
+    pending_errors().push({.error = error, .description = description});
   }
 };
 
@@ -72,8 +76,8 @@ class StaticState final {
   }
 
   PlatformWindow* Find(::GLFWwindow* glfw_window) const {
-    auto iter = map_.Find(glfw_window);
-    return iter != map_.end() : *iter : nullptr;
+    auto iter = map_.find(glfw_window);
+    return iter != map_.end() ? iter->second : nullptr;
   }
 
  private:
@@ -92,7 +96,7 @@ class PlatformWindow final : public Window {
   PlatformWindow() = delete;
   ~PlatformWindow() = default;
 
-  explicit PlatformWindow(std::string_view title, Geometry geometry)
+  explicit PlatformWindow(std::string_view title, Window::Geometry geometry)
       : BaseType{title, geometry} {
     CHECK_PRECONDITION(impl::StaticInitialization::Instance().IsInitialized());
 
@@ -129,34 +133,32 @@ class PlatformWindow final : public Window {
  private:
   ::GLFWwindow* glfw_window_ = nullptr;
 
-  friend static void FrameBufferSizeCallback(  //
-      ::GLFWwindow* window,                    //
-      int width, int height                    //
-      ) noexcept {
+  static void FrameBufferSizeCallback(  //
+      ::GLFWwindow* window,             //
+      int width, int height) {
     PlatformWindow* platform_window =
         impl::StaticState::Instance().Find(window);
 
     CHECK_INVARIANT(platform_window);
-    platform_window->Renderer().RecreateSwapchain();
+    platform_window->renderer().RecreateSwapchain();
   }
 
-  friend static void WindowRefreshCallback(  //
-      ::GLFWwindow* window                   //
-      ) noexcept {
+  static void WindowRefreshCallback(  //
+      ::GLFWwindow* window) {
     PlatformWindow* platform_window =
         impl::StaticState::Instance().Find(window);
 
     CHECK_INVARIANT(platform_window);
-    platform_window->Renderer().Render();
+    platform_window->renderer().Render();
   }
 
-  friend static void KeyCallback(                  //
-      ::GLFWwindow* window,                        //
-      int key, int scancode, int action, int mods  //
-      ) noexcept {
+  static void KeyCallback(   //
+      ::GLFWwindow* window,  //
+      int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
       ::glfwSetWindowShouldClose(window, GLFW_TRUE);
     }
   }
+};
 
-}  // namespace volc::GLFW
+}  // namespace volc::glfw

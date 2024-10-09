@@ -4,6 +4,7 @@
 #include <functional>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <vector>
 
 #include "lib/base.hpp"
@@ -86,6 +87,58 @@ inline void LoadInstanceFunction(const char* name, ::VkInstance instance,
       ::vkGetInstanceProcAddr(instance, name));
 }
 
+inline std::string ConvertToString(::VkPhysicalDeviceType _) {
+  switch (_) {
+    case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+      return "VK_PHYSICAL_DEVICE_TYPE_OTHER";
+    case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+      return "VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU";
+    case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+      return "VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU";
+    case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+      return "VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU";
+    case VK_PHYSICAL_DEVICE_TYPE_CPU:
+      return "VK_PHYSICAL_DEVICE_TYPE_CPU";
+  }
+  CHECK_UNREACHABLE();
+  return {};
+}
+
+inline std::string ConvertToString(::VkQueueFlagBits _) {
+  switch (_) {
+    case VK_QUEUE_GRAPHICS_BIT:
+      return "VK_QUEUE_GRAPHICS_BIT";
+    case VK_QUEUE_COMPUTE_BIT:
+      return "VK_QUEUE_COMPUTE_BIT";
+    case VK_QUEUE_TRANSFER_BIT:
+      return "VK_QUEUE_TRANSFER_BIT";
+    case VK_QUEUE_SPARSE_BINDING_BIT:
+      return "VK_QUEUE_SPARSE_BINDING_BIT";
+    case VK_QUEUE_PROTECTED_BIT:
+      return "VK_QUEUE_PROTECTED_BIT";
+    case VK_QUEUE_VIDEO_DECODE_BIT_KHR:
+      return "VK_QUEUE_VIDEO_DECODE_BIT_KHR";
+    case VK_QUEUE_VIDEO_ENCODE_BIT_KHR:
+      return "VK_QUEUE_VIDEO_ENCODE_BIT_KHR";
+  }
+  CHECK_UNREACHABLE();
+  return {};
+}
+
+inline std::string ConvertToString(::VkQueueFlags flags) {
+  std::stringstream stream;
+  for (auto bit :
+       {VK_QUEUE_GRAPHICS_BIT, VK_QUEUE_COMPUTE_BIT, VK_QUEUE_TRANSFER_BIT,
+        VK_QUEUE_SPARSE_BINDING_BIT, VK_QUEUE_PROTECTED_BIT,
+        VK_QUEUE_VIDEO_DECODE_BIT_KHR, VK_QUEUE_VIDEO_ENCODE_BIT_KHR}) {
+    if (flags & bit) {
+      stream << ConvertToString(static_cast<::VkQueueFlagBits>(flags & bit))
+             << ", ";
+    }
+  }
+  return std::move(stream).str();
+}
+
 constexpr const char* VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
 constexpr const char* DEBUG_EXTENSION_NAME = "VK_EXT_debug_utils";
 constexpr const char* DEBUG_CREATE_FUNCTION_NAME =
@@ -124,7 +177,7 @@ class Instance final {
     }
   }
 
-  const ::VkPhysicalDevice* FindDeviceForSurface(::VkSurfaceKHR surface) {
+  ::VkPhysicalDevice FindDeviceForSurface(::VkSurfaceKHR surface) {
     CHECK_PRECONDITION(surface != VK_NULL_HANDLE);
 
     for (auto&& device : devices_) {
@@ -133,21 +186,22 @@ class Instance final {
       if (device_property.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
         auto&& queue_family_properties = queue_family_properties_[device];
 
-        for (std::size_t queue_i = 0; queue_i < queue_family_properties.size();
-             ++queue_i) {
+        for (std::size_t queue_family_i = 0;
+             queue_family_i < queue_family_properties.size();
+             ++queue_family_i) {
           ::VkBool32 supported = VK_FALSE;
           ::VkResult result = ::vkGetPhysicalDeviceSurfaceSupportKHR(
-              device, queue_i, surface, std::addressof(supported));
+              device, queue_family_i, surface, std::addressof(supported));
           CHECK_POSTCONDITION(result == VK_SUCCESS);
 
           if (supported) {
-            return std::addressof(device);
+            return device;
           }
         }
       }
     }
 
-    return nullptr;
+    return VK_NULL_HANDLE;
   }
 
  private:
@@ -211,7 +265,9 @@ class Instance final {
       ::vkGetPhysicalDeviceProperties(
           device, std::addressof(device_properties_[device]));
       std::cout << "Physical Device Name: "
-                << device_properties_[device].deviceName << '\n';
+                << device_properties_[device].deviceName << " ["
+                << impl::ConvertToString(device_properties_[device].deviceType)
+                << "]\n";
 
       impl::MaybeEnumerateProperties(
           std::bind_front(::vkGetPhysicalDeviceQueueFamilyProperties, device),
@@ -220,7 +276,7 @@ class Instance final {
       std::cout << "Queue Family Flags: \n";
       for (auto&& property : queue_family_properties_[device]) {
         std::cout << "--  [" << property.queueCount << "] "
-                  << property.queueFlags << '\n';
+                  << impl::ConvertToString(property.queueFlags) << '\n';
       }
     }
   }
