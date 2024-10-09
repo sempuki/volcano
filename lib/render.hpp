@@ -14,9 +14,10 @@ class Renderer {
   Renderer() = delete;
   virtual ~Renderer() = default;
 
-  virtual bool has_swapchain() = 0;
-  virtual bool recreate_swapchain() = 0;
-  virtual bool render() = 0;
+  virtual bool HasSwapchain() = 0;
+  virtual void RecreateSwapchain() = 0;
+  virtual void SetSurface(::VkSurfaceKHR surface) = 0;
+  virtual void Render() = 0;
 
  protected:
 };

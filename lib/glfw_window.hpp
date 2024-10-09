@@ -33,9 +33,9 @@ class StaticInitialization final {
     ::glfwTerminate();
   }
 
-  bool is_initialized() const { return initialized_; }
+  bool IsInitialized() const { return initialized_; }
 
-  static StaticInitialization& instance() {
+  static StaticInitialization& Instance() {
     static StaticInitialization instance_;
     return instance_;
   }
@@ -62,17 +62,17 @@ class StaticState final {
   StaticState() = default;
   ~StaticState() = default;
 
-  static StaticState& instance() {
+  static StaticState& Instance() {
     static StaticState instance_;
     return instance_;
   }
 
-  bool link(::GLFWwindow* glfw_window, PlatformWindow* platform_window) {
+  bool Link(::GLFWwindow* glfw_window, PlatformWindow* platform_window) {
     return map_.try_emplace(glfw_window, platform_window).second;
   }
 
-  PlatformWindow* find(::GLFWwindow* glfw_window) const {
-    auto iter = map_.find(glfw_window);
+  PlatformWindow* Find(::GLFWwindow* glfw_window) const {
+    auto iter = map_.Find(glfw_window);
     return iter != map_.end() : *iter : nullptr;
   }
 
@@ -94,7 +94,7 @@ class PlatformWindow final : public Window {
 
   explicit PlatformWindow(std::string_view title, Geometry geometry)
       : BaseType{title, geometry} {
-    CHECK_PRECONDITION(impl::StaticInitialization::instance().is_initialized());
+    CHECK_PRECONDITION(impl::StaticInitialization::Instance().IsInitialized());
 
     ::glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     ::glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
@@ -104,13 +104,26 @@ class PlatformWindow final : public Window {
                                       title_.c_str(), nullptr, nullptr);
     CHECK_POSTCONDITION(glfw_window_);
 
-    bool inserted = impl::StaticState::instance().link(glfw_window_, this);
+    bool inserted = impl::StaticState::Instance().Link(glfw_window_, this);
     CHECK_INVARIANT(inserted);
 
     ::glfwSetInputMode(glfw_window_, GLFW_STICKY_KEYS, GLFW_TRUE);
     ::glfwSetFramebufferSizeCallback(glfw_window_, FrameBufferSizeCallback);
     ::glfwSetWindowRefreshCallback(glfw_window_, WindowRefreshCallback);
     ::glfwSetKeyCallback(glfw_window_, KeyCallback);
+  }
+
+  ::VkSurfaceKHR CreateSurface(::VkInstance instance) {
+    CHECK_PRECONDITION(instance != VK_NULL_HANDLE);
+    CHECK_INVARIANT(glfw_window_);
+
+    ::VkSurfaceKHR surface = VK_NULL_HANDLE;
+    ::VkResult result =
+        ::glfwCreateWindowSurface(instance, glfw_window_, nullptr, &surface);
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    CHECK_POSTCONDITION(surface != VK_NULL_HANDLE);
+
+    return surface;
   }
 
  private:
@@ -121,20 +134,20 @@ class PlatformWindow final : public Window {
       int width, int height                    //
       ) noexcept {
     PlatformWindow* platform_window =
-        impl::StaticState::instance().find(window);
+        impl::StaticState::Instance().Find(window);
 
     CHECK_INVARIANT(platform_window);
-    platform_window->renderer().recreate_swapchain();
+    platform_window->Renderer().RecreateSwapchain();
   }
 
   friend static void WindowRefreshCallback(  //
       ::GLFWwindow* window                   //
       ) noexcept {
     PlatformWindow* platform_window =
-        impl::StaticState::instance().find(window);
+        impl::StaticState::Instance().Find(window);
 
     CHECK_INVARIANT(platform_window);
-    platform_window->renderer().render();
+    platform_window->Renderer().Render();
   }
 
   friend static void KeyCallback(                  //

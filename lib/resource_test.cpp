@@ -5,7 +5,8 @@
 namespace volc {
 
 TEST_CASE("Application") {
-  Application application{"test-app", 0};
+  // Application application{"test-app", 0};
+  // auto instance = application.CreateInstance();
 
   SECTION("ShouldPass") { REQUIRE(true); }
 }

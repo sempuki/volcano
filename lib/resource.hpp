@@ -1,7 +1,9 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <iostream>
+#include <map>
 #include <vector>
 
 #include "lib/base.hpp"
@@ -29,14 +31,21 @@ inline void MaybeEnumerateProperties(
   std::vector<PropertyType> current;
 
   // Gather the required array size.
-  ::VkResult result = enumerate(std::addressof(count), nullptr);
-  CHECK_INVARIANT(result == VK_SUCCESS);
+  InvokeWithContinuation(
+      Overloaded(
+          [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
+          []() {}),
+      enumerate, std::addressof(count), nullptr);
   current.resize(count);
 
   // Gather the enumerated properties.
   if (count) {
-    result = enumerate(std::addressof(count), current.data());
-    CHECK_INVARIANT(result == VK_SUCCESS);
+    InvokeWithContinuation(
+        Overloaded(
+            [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
+            []() {}),
+        enumerate, std::addressof(count), current.data());
+
     properties->insert(properties->end(),  //
                        current.begin(),    //
                        current.end());
@@ -72,6 +81,7 @@ inline bool HasStringName(const std::vector<const char*>& names,
 template <typename TargetFunctionPointer>
 inline void LoadInstanceFunction(const char* name, ::VkInstance instance,
                                  Out<TargetFunctionPointer> target) {
+  CHECK_PRECONDITION(instance != VK_NULL_HANDLE);
   *target = reinterpret_cast<TargetFunctionPointer>(
       ::vkGetInstanceProcAddr(instance, name));
 }
@@ -106,10 +116,38 @@ class Instance final {
 
   Instance() = delete;
   ~Instance() {
-    if (destroy_debug_messenger_ && debug_messenger_) {
-      destroy_debug_messenger_(instance_, debug_messenger_, impl::ALLOCATOR);
+    if (instance_ != VK_NULL_HANDLE) {
+      if (destroy_debug_messenger_ && debug_messenger_ != VK_NULL_HANDLE) {
+        destroy_debug_messenger_(instance_, debug_messenger_, impl::ALLOCATOR);
+      }
+      ::vkDestroyInstance(instance_, impl::ALLOCATOR);
     }
-    ::vkDestroyInstance(instance_, impl::ALLOCATOR);
+  }
+
+  const ::VkPhysicalDevice* FindDeviceForSurface(::VkSurfaceKHR surface) {
+    CHECK_PRECONDITION(surface != VK_NULL_HANDLE);
+
+    for (auto&& device : devices_) {
+      auto&& device_property = device_properties_[device];
+
+      if (device_property.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+        auto&& queue_family_properties = queue_family_properties_[device];
+
+        for (std::size_t queue_i = 0; queue_i < queue_family_properties.size();
+             ++queue_i) {
+          ::VkBool32 supported = VK_FALSE;
+          ::VkResult result = ::vkGetPhysicalDeviceSurfaceSupportKHR(
+              device, queue_i, surface, std::addressof(supported));
+          CHECK_POSTCONDITION(result == VK_SUCCESS);
+
+          if (supported) {
+            return std::addressof(device);
+          }
+        }
+      }
+    }
+
+    return nullptr;
   }
 
  private:
@@ -159,26 +197,51 @@ class Instance final {
             instance_, std::addressof(debug_messenger_info_), impl::ALLOCATOR,
             std::addressof(debug_messenger_));
         CHECK_POSTCONDITION(result == VK_SUCCESS);
-        CHECK_POSTCONDITION(debug_messenger_);
+        CHECK_POSTCONDITION(debug_messenger_ != VK_NULL_HANDLE);
       } else {
         std::cerr << "Missing debug extension.";
       }
     }
+
+    impl::MaybeEnumerateProperties(
+        std::bind_front(::vkEnumeratePhysicalDevices, instance_),
+        InOut(devices_));
+
+    for (auto&& device : devices_) {
+      ::vkGetPhysicalDeviceProperties(
+          device, std::addressof(device_properties_[device]));
+      std::cout << "Physical Device Name: "
+                << device_properties_[device].deviceName << '\n';
+
+      impl::MaybeEnumerateProperties(
+          std::bind_front(::vkGetPhysicalDeviceQueueFamilyProperties, device),
+          InOut(queue_family_properties_[device]));
+
+      std::cout << "Queue Family Flags: \n";
+      for (auto&& property : queue_family_properties_[device]) {
+        std::cout << "--  [" << property.queueCount << "] "
+                  << property.queueFlags << '\n';
+      }
+    }
   }
 
-  ::VkInstance instance_ = nullptr;
+  ::VkInstance instance_ = VK_NULL_HANDLE;
+  ::VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
 
-  ::VkDebugUtilsMessengerEXT debug_messenger_ = nullptr;
   ::PFN_vkSubmitDebugUtilsMessageEXT submit_debug_message_ = nullptr;
   ::PFN_vkCreateDebugUtilsMessengerEXT create_debug_messenger_ = nullptr;
   ::PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_messenger_ = nullptr;
 
-  ::VkInstanceCreateInfo instance_info_;
+  ::VkInstanceCreateInfo instance_info_ = impl::MakeInstanceCreateInfo();
   ::VkDebugUtilsMessengerCreateInfoEXT debug_messenger_info_ =
       impl::MakeDebugMessengerCreateInfo();
 
   std::vector<const char*> layers_;
   std::vector<const char*> extensions_;
+  std::vector<::VkPhysicalDevice> devices_;
+  std::map<::VkPhysicalDevice, ::VkPhysicalDeviceProperties> device_properties_;
+  std::map<::VkPhysicalDevice, std::vector<::VkQueueFamilyProperties>>
+      queue_family_properties_;
 
   static ::VkDebugUtilsMessageSeverityFlagsEXT ConvertToDebugSeverity(
       DebugLevel _) {
@@ -207,7 +270,7 @@ class Instance final {
   static VKAPI_ATTR ::VkBool32 DebugMessengerCallback(
       ::VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
       ::VkDebugUtilsMessageTypeFlagsEXT message_types,
-      const ::VkDebugUtilsMessengerCallbackDataEXT* data, void*) noexcept {
+      const ::VkDebugUtilsMessengerCallbackDataEXT* data, void*) {
     CHECK_PRECONDITION(
         data->sType ==
         VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT);
@@ -229,6 +292,7 @@ class Instance final {
       const ::VkDebugUtilsObjectNameInfoEXT& _ = data->pObjects[i];
       std::cout << "**  " << _.pObjectName << '\n';
     }
+    return VK_FALSE;
   }
 };
 
@@ -246,11 +310,8 @@ class Application final {
                                    InOut(supported_layers_));
     for (auto&& property : supported_layers_) {
       impl::MaybeEnumerateProperties(
-          [layer_name = property.layerName](
-              std::uint32_t* count, ::VkExtensionProperties* properties) {
-            return ::vkEnumerateInstanceExtensionProperties(  //
-                layer_name, count, properties);
-          },
+          std::bind_front(::vkEnumerateInstanceExtensionProperties,
+                          property.layerName),
           InOut(supported_extensions_));
     }
 
