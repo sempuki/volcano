@@ -9,6 +9,7 @@ static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
 #include <format>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <print>
 #include <source_location>

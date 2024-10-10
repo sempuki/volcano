@@ -5,5 +5,10 @@ package(default_visibility = ["//visibility:public"])
 cc_binary(
     name = "hello",
     srcs = ["hello.cpp"],
+    deps = [
+        "//lib:glfw_window",
+        "//lib:render",
+        "//lib:resource",
+    ],
 )
 
