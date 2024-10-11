@@ -166,6 +166,8 @@ inline std::string ConvertToString(::VkQueueFlags flags) {
 }
 
 constexpr const char* VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
+constexpr const char* SWAPCHAIN_EXTENSION_NAME =
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 constexpr const char* DEBUG_EXTENSION_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
 constexpr const char* DEBUG_CREATE_FUNCTION_NAME =
     "vkCreateDebugUtilsMessengerEXT";
@@ -188,6 +190,26 @@ enum class DebugLevel {
 
 class Application;
 class Instance;
+class Device;
+
+class Queue final {
+ public:
+  DECLARE_COPY_DELETE(Queue);
+  DECLARE_MOVE_DEFAULT(Queue);
+
+  Queue() = delete;
+  ~Queue() = default;
+
+ private:
+  ::VkQueue queue_ = VK_NULL_HANDLE;
+
+  explicit Queue(::VkDevice device,                 //
+                 std::uint32_t queue_family_index,  //
+                 std::uint32_t queue_index) {
+    ::vkGetDeviceQueue(device, queue_family_index, queue_index,
+                       std::addressof(queue_));
+  }
+};
 
 class Device final {
  public:
@@ -201,13 +223,21 @@ class Device final {
     }
   }
 
+  // Queue CreateQueue() {
+  //   return Queue{
+  //       device_,
+  //   };  //
+  // }
+
  private:
   friend class Instance;
 
   explicit Device(::VkPhysicalDevice phys_device,
                   const ::VkPhysicalDeviceFeatures& phys_device_features,
+                  std::vector<const char*> extensions,
                   std::vector<std::uint32_t> queue_families)
-      : phys_device_features_{phys_device_features} {
+      : phys_device_features_{phys_device_features},
+        extensions_{std::move(extensions)} {
     static const std::array<float, 1> queue_priority{1.0f};  // [0.0, 1.0]
 
     for (auto queue_family_i : queue_families) {
@@ -231,6 +261,7 @@ class Device final {
   ::VkDeviceCreateInfo device_info_ = impl::MakeDeviceCreateInfo();
   ::VkPhysicalDeviceFeatures phys_device_features_;
   std::vector<::VkDeviceQueueCreateInfo> device_queue_infos_;
+  std::vector<const char*> extensions_;
 };
 
 class Instance final {
@@ -274,17 +305,16 @@ class Instance final {
     CHECK_POSTCONDITION(result.size());
     CHECK_POSTCONDITION(result.front().phys_device != VK_NULL_HANDLE);
 
-    return Device{
-        result.front().phys_device, {}, {{result.front().queue_family_index}}};
-  }
+    ::VkPhysicalDevice selected_phys_device = result.front().phys_device;
+    std::uint32_t selected_queue_family_index =
+        result.front().queue_family_index;
 
-  // RenderQueues FindRenderQueuesFor(::VkSurfaceKHR surface) {
-  //   if (result.size()) {
-  //     return {.graphics = result.front().queue_family_index,
-  //             .presentation = result.front().queue_family_index};
-  //   }
-  //   return {};
-  // }
+    ::VkPhysicalDeviceFeatures phys_device_features{};  // Must be init'd.
+    return Device{selected_phys_device,
+                  phys_device_features,
+                  {impl::SWAPCHAIN_EXTENSION_NAME},
+                  {{selected_queue_family_index}}};
+  }
 
  private:
   friend class Application;
@@ -374,12 +404,17 @@ class Instance final {
       impl::MaybeEnumerateProperties(
           std::bind_front(::vkEnumerateDeviceExtensionProperties, phys_device,
                           nullptr),
-          InOut(device_extension_properties_[phys_device]));
+          InOut(supported_device_extension_properties_[phys_device]));
 
-      std::print("Device Extensions: \n");
-      for (auto&& property : device_extension_properties_[phys_device]) {
+      std::print("Supported Device Extensions: \n");
+      for (auto&& property :
+           supported_device_extension_properties_[phys_device]) {
         std::print(" -- {}\n", property.extensionName);
       }
+
+      CHECK_INVARIANT(impl::HasExtensionProperty(
+          supported_device_extension_properties_[phys_device],
+          impl::SWAPCHAIN_EXTENSION_NAME));
     }
   }
 
@@ -437,7 +472,7 @@ class Instance final {
   std::map<::VkPhysicalDevice, std::vector<::VkQueueFamilyProperties>>
       queue_family_properties_;
   std::map<::VkPhysicalDevice, std::vector<::VkExtensionProperties>>
-      device_extension_properties_;
+      supported_device_extension_properties_;
 
   static ::VkDebugUtilsMessageSeverityFlagsEXT ConvertToDebugSeverity(
       DebugLevel _) {
