@@ -113,7 +113,23 @@ inline void LoadInstanceFunction(const char* name, ::VkInstance instance,
       ::vkGetInstanceProcAddr(instance, name));
 }
 
-inline std::string ConvertToString(::VkPhysicalDeviceType _) {
+inline std::string_view ConvertToString(
+    ::VkDebugUtilsMessageSeverityFlagBitsEXT _) {
+  switch (_) {
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+      return "VERB";
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+      return "INFO";
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+      return "WARN";
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+      return "ERRO";
+  }
+  CHECK_UNREACHABLE();
+  return {};
+}
+
+inline std::string_view ConvertToString(::VkPhysicalDeviceType _) {
   switch (_) {
     case VK_PHYSICAL_DEVICE_TYPE_OTHER:
       return "VK_PHYSICAL_DEVICE_TYPE_OTHER";
@@ -130,7 +146,7 @@ inline std::string ConvertToString(::VkPhysicalDeviceType _) {
   return {};
 }
 
-inline std::string ConvertToString(::VkQueueFlagBits _) {
+inline std::string_view ConvertToString(::VkQueueFlagBits _) {
   switch (_) {
     case VK_QUEUE_GRAPHICS_BIT:
       return "VK_QUEUE_GRAPHICS_BIT";
@@ -203,6 +219,8 @@ class Queue final {
  private:
   ::VkQueue queue_ = VK_NULL_HANDLE;
 
+  friend class Device;
+
   explicit Queue(::VkDevice device,                 //
                  std::uint32_t queue_family_index,  //
                  std::uint32_t queue_index) {
@@ -223,11 +241,10 @@ class Device final {
     }
   }
 
-  // Queue CreateQueue() {
-  //   return Queue{
-  //       device_,
-  //   };  //
-  // }
+  Queue CreateQueue() {
+    CHECK_PRECONDITION(queue_families_.size());
+    return Queue{device_, queue_families_.front(), 0u};
+  }
 
  private:
   friend class Instance;
@@ -237,10 +254,11 @@ class Device final {
                   std::vector<const char*> extensions,
                   std::vector<std::uint32_t> queue_families)
       : phys_device_features_{phys_device_features},
-        extensions_{std::move(extensions)} {
+        extensions_{std::move(extensions)},
+        queue_families_{std::move(queue_families)} {
     static const std::array<float, 1> queue_priority{1.0f};  // [0.0, 1.0]
 
-    for (auto queue_family_i : queue_families) {
+    for (auto queue_family_i : queue_families_) {
       device_queue_infos_.push_back(impl::MakeDeviceQueueCreateInfo());
       device_queue_infos_.back().queueFamilyIndex = queue_family_i;
       device_queue_infos_.back().queueCount = queue_priority.size();
@@ -249,6 +267,8 @@ class Device final {
 
     device_info_.queueCreateInfoCount = device_queue_infos_.size();
     device_info_.pQueueCreateInfos = device_queue_infos_.data();
+    device_info_.enabledExtensionCount = extensions_.size();
+    device_info_.ppEnabledExtensionNames = extensions_.data();
     device_info_.pEnabledFeatures = std::addressof(phys_device_features);
 
     ::VkResult result =
@@ -262,6 +282,7 @@ class Device final {
   ::VkPhysicalDeviceFeatures phys_device_features_;
   std::vector<::VkDeviceQueueCreateInfo> device_queue_infos_;
   std::vector<const char*> extensions_;
+  std::vector<std::uint32_t> queue_families_;
 };
 
 class Instance final {
@@ -309,9 +330,8 @@ class Instance final {
     std::uint32_t selected_queue_family_index =
         result.front().queue_family_index;
 
-    ::VkPhysicalDeviceFeatures phys_device_features{};  // Must be init'd.
     return Device{selected_phys_device,
-                  phys_device_features,
+                  device_features_[selected_phys_device],
                   {impl::SWAPCHAIN_EXTENSION_NAME},
                   {{selected_queue_family_index}}};
   }
@@ -389,6 +409,9 @@ class Instance final {
 
       ::vkGetPhysicalDeviceMemoryProperties(
           phys_device, std::addressof(device_memory_properties_[phys_device]));
+
+      ::vkGetPhysicalDeviceFeatures(
+          phys_device, std::addressof(device_features_[phys_device]));
 
       impl::MaybeEnumerateProperties(
           std::bind_front(::vkGetPhysicalDeviceQueueFamilyProperties,
@@ -469,6 +492,7 @@ class Instance final {
   std::map<::VkPhysicalDevice, ::VkPhysicalDeviceProperties> device_properties_;
   std::map<::VkPhysicalDevice, ::VkPhysicalDeviceMemoryProperties>
       device_memory_properties_;
+  std::map<::VkPhysicalDevice, ::VkPhysicalDeviceFeatures> device_features_;
   std::map<::VkPhysicalDevice, std::vector<::VkQueueFamilyProperties>>
       queue_family_properties_;
   std::map<::VkPhysicalDevice, std::vector<::VkExtensionProperties>>
@@ -506,7 +530,8 @@ class Instance final {
         data->sType ==
         VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT);
 
-    std::print("[{}] {}\n", data->pMessageIdName, data->pMessage);
+    std::print("[{}]<{}> {}\n", impl::ConvertToString(message_severity),
+               data->pMessageIdName, data->pMessage);
     // std::cout << "Queue Labels: \n";
     // for (std::uint32_t i = 0; i < data->queueLabelCount; ++i) {
     //   const ::VkDebugUtilsLabelEXT& _ = data->pQueueLabels[i];

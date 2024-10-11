@@ -2,6 +2,8 @@
 #include "lib/render.hpp"
 #include "lib/resource.hpp"
 
+#include <cstdlib>
+
 using namespace volc;
 
 int main() {
@@ -15,6 +17,7 @@ int main() {
       {}, platform_window.RequiredExtensions(), DebugLevel::VERBOSE);
   auto surface = platform_window.CreateSurface(instance.Handle());
   auto device = instance.CreateDevice(surface);
+  auto queue = device.CreateQueue();
 
   ::vkDestroySurfaceKHR(instance.Handle(), surface, nullptr);
 }
