@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <functional>
 #include <map>
 #include <sstream>
@@ -12,16 +13,30 @@ namespace volc {
 namespace impl {
 
 inline auto MakeApplicationInfo() {
-  return ::VkApplicationInfo{.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-                             .apiVersion = VK_API_VERSION_1_3};
+  return ::VkApplicationInfo{
+      .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,  //
+      .apiVersion = VK_API_VERSION_1_3              //
+  };
 }
 inline auto MakeInstanceCreateInfo() {
-  return ::VkInstanceCreateInfo{.sType =
-                                    VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+  return ::VkInstanceCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO  //
+  };
+}
+inline auto MakeDeviceCreateInfo() {
+  return ::VkDeviceCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO  //
+  };
+}
+inline auto MakeDeviceQueueCreateInfo() {
+  return ::VkDeviceQueueCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO  //
+  };
 }
 inline auto MakeDebugMessengerCreateInfo() {
   return ::VkDebugUtilsMessengerCreateInfoEXT{
-      .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+      .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT  //
+  };
 }
 
 template <typename EnumeratorType, typename PropertyType>
@@ -172,6 +187,51 @@ enum class DebugLevel {
 };
 
 class Application;
+class Instance;
+
+class Device final {
+ public:
+  DECLARE_COPY_DELETE(Device);
+  DECLARE_MOVE_DEFAULT(Device);
+
+  Device() = delete;
+  ~Device() {
+    if (device_ != VK_NULL_HANDLE) {
+      ::vkDestroyDevice(device_, impl::ALLOCATOR);
+    }
+  }
+
+ private:
+  friend class Instance;
+
+  explicit Device(::VkPhysicalDevice phys_device,
+                  const ::VkPhysicalDeviceFeatures& phys_device_features,
+                  std::vector<std::uint32_t> queue_families)
+      : phys_device_features_{phys_device_features} {
+    static const std::array<float, 1> queue_priority{1.0f};  // [0.0, 1.0]
+
+    for (auto queue_family_i : queue_families) {
+      device_queue_infos_.push_back(impl::MakeDeviceQueueCreateInfo());
+      device_queue_infos_.back().queueFamilyIndex = queue_family_i;
+      device_queue_infos_.back().queueCount = queue_priority.size();
+      device_queue_infos_.back().pQueuePriorities = queue_priority.data();
+    }
+
+    device_info_.queueCreateInfoCount = device_queue_infos_.size();
+    device_info_.pQueueCreateInfos = device_queue_infos_.data();
+    device_info_.pEnabledFeatures = std::addressof(phys_device_features);
+
+    ::VkResult result =
+        ::vkCreateDevice(phys_device, std::addressof(device_info_),
+                         impl::ALLOCATOR, std::addressof(device_));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
+  ::VkDevice device_ = VK_NULL_HANDLE;
+  ::VkDeviceCreateInfo device_info_ = impl::MakeDeviceCreateInfo();
+  ::VkPhysicalDeviceFeatures phys_device_features_;
+  std::vector<::VkDeviceQueueCreateInfo> device_queue_infos_;
+};
 
 class Instance final {
  public:
@@ -190,39 +250,41 @@ class Instance final {
 
   ::VkInstance Handle() const { return instance_; }
 
-  struct RenderQueues final {
-    std::uint32_t graphics = 0;
-    std::uint32_t presentation = 0;
-  };
-
-  RenderQueues FindRenderQueuesFor(::VkSurfaceKHR surface) {
+  Device CreateDevice(::VkSurfaceKHR surface) {
     CHECK_PRECONDITION(surface != VK_NULL_HANDLE);
 
-    auto result = SelectQueueFamilyIf(
+    std::vector<FindQueueFamilyResult> result = SelectQueueFamilyIf(
         [surface](
-            ::VkPhysicalDevice device,
-            const ::VkPhysicalDeviceProperties& device_property,
+            ::VkPhysicalDevice phys_device,
+            const ::VkPhysicalDeviceProperties& phys_device_property,
             std::uint32_t queue_family_i,
             const ::VkQueueFamilyProperties& queue_family_properties) -> bool {
-          if (device_property.deviceType ==
-              VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+          if ((phys_device_property.deviceType ==
+               VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) &&
+              (queue_family_properties.queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
             ::VkBool32 is_supported = VK_FALSE;
             ::VkResult result = ::vkGetPhysicalDeviceSurfaceSupportKHR(
-                device, queue_family_i, surface, std::addressof(is_supported));
+                phys_device, queue_family_i, surface,
+                std::addressof(is_supported));
             CHECK_POSTCONDITION(result == VK_SUCCESS);
             return is_supported;
           }
           return false;
         });
+    CHECK_POSTCONDITION(result.size());
+    CHECK_POSTCONDITION(result.front().phys_device != VK_NULL_HANDLE);
 
-    if (result.size()) {
-      CHECK_POSTCONDITION(result.front().device != VK_NULL_HANDLE);
-      return {.graphics = result.front().queue_family_index,
-              .presentation = result.front().queue_family_index};
-    }
-
-    return {};
+    return Device{
+        result.front().phys_device, {}, {{result.front().queue_family_index}}};
   }
+
+  // RenderQueues FindRenderQueuesFor(::VkSurfaceKHR surface) {
+  //   if (result.size()) {
+  //     return {.graphics = result.front().queue_family_index,
+  //             .presentation = result.front().queue_family_index};
+  //   }
+  //   return {};
+  // }
 
  private:
   friend class Application;
@@ -285,32 +347,44 @@ class Instance final {
 
     impl::MaybeEnumerateProperties(
         std::bind_front(::vkEnumeratePhysicalDevices, instance_),
-        InOut(devices_));
+        InOut(phys_devices_));
 
     std::print("Physical Devices: \n");
-    for (auto&& device : devices_) {
+    for (auto&& phys_device : phys_devices_) {
       ::vkGetPhysicalDeviceProperties(
-          device, std::addressof(device_properties_[device]));
-      std::print(" ** {} [{}]\n", device_properties_[device].deviceName,
-                 impl::ConvertToString(device_properties_[device].deviceType));
+          phys_device, std::addressof(device_properties_[phys_device]));
+      std::print(
+          " ** {} [{}]\n", device_properties_[phys_device].deviceName,
+          impl::ConvertToString(device_properties_[phys_device].deviceType));
 
       ::vkGetPhysicalDeviceMemoryProperties(
-          device, std::addressof(device_memory_properties_[device]));
+          phys_device, std::addressof(device_memory_properties_[phys_device]));
 
       impl::MaybeEnumerateProperties(
-          std::bind_front(::vkGetPhysicalDeviceQueueFamilyProperties, device),
-          InOut(queue_family_properties_[device]));
+          std::bind_front(::vkGetPhysicalDeviceQueueFamilyProperties,
+                          phys_device),
+          InOut(queue_family_properties_[phys_device]));
 
       std::print("Queue Family Flags: \n");
-      for (auto&& property : queue_family_properties_[device]) {
-        std::print(" -- [{}] {}\n", property.queueCount,
+      for (auto&& property : queue_family_properties_[phys_device]) {
+        std::print(" .. [{}] {}\n", property.queueCount,
                    impl::ConvertToString(property.queueFlags));
+      }
+
+      impl::MaybeEnumerateProperties(
+          std::bind_front(::vkEnumerateDeviceExtensionProperties, phys_device,
+                          nullptr),
+          InOut(device_extension_properties_[phys_device]));
+
+      std::print("Device Extensions: \n");
+      for (auto&& property : device_extension_properties_[phys_device]) {
+        std::print(" -- {}\n", property.extensionName);
       }
     }
   }
 
   struct FindQueueFamilyResult final {
-    ::VkPhysicalDevice device = VK_NULL_HANDLE;
+    ::VkPhysicalDevice phys_device = VK_NULL_HANDLE;
     std::uint32_t queue_family_index = 0;
   };
 
@@ -319,21 +393,21 @@ class Instance final {
       PredicateType&& predicate) {
     std::vector<FindQueueFamilyResult> result;
 
-    for (auto&& device : devices_) {
-      auto&& device_property = device_properties_[device];
-      auto&& queue_family_properties = queue_family_properties_[device];
+    for (auto&& phys_device : phys_devices_) {
+      auto&& phys_device_property = device_properties_[phys_device];
+      auto&& queue_family_properties = queue_family_properties_[phys_device];
 
       for (std::uint32_t queue_family_i = 0;                 //
            queue_family_i < queue_family_properties.size();  //
            ++queue_family_i) {
         auto&& queue_family_property = queue_family_properties[queue_family_i];
 
-        if (predicate(device,           //
-                      device_property,  //
-                      queue_family_i,   //
+        if (predicate(phys_device,           //
+                      phys_device_property,  //
+                      queue_family_i,        //
                       queue_family_property)) {
           result.push_back({
-              .device = device,                     //
+              .phys_device = phys_device,           //
               .queue_family_index = queue_family_i  //
           });
         }
@@ -356,12 +430,14 @@ class Instance final {
 
   std::vector<const char*> layers_;
   std::vector<const char*> extensions_;
-  std::vector<::VkPhysicalDevice> devices_;
+  std::vector<::VkPhysicalDevice> phys_devices_;
   std::map<::VkPhysicalDevice, ::VkPhysicalDeviceProperties> device_properties_;
   std::map<::VkPhysicalDevice, ::VkPhysicalDeviceMemoryProperties>
       device_memory_properties_;
   std::map<::VkPhysicalDevice, std::vector<::VkQueueFamilyProperties>>
       queue_family_properties_;
+  std::map<::VkPhysicalDevice, std::vector<::VkExtensionProperties>>
+      device_extension_properties_;
 
   static ::VkDebugUtilsMessageSeverityFlagsEXT ConvertToDebugSeverity(
       DebugLevel _) {
@@ -389,7 +465,7 @@ class Instance final {
 
   static VKAPI_ATTR ::VkBool32 DebugMessengerCallback(
       ::VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-      ::VkDebugUtilsMessageTypeFlagsEXT message_types,
+      ::VkDebugUtilsMessageTypeFlagsEXT message_type,
       const ::VkDebugUtilsMessengerCallbackDataEXT* data, void*) {
     CHECK_PRECONDITION(
         data->sType ==
@@ -477,8 +553,8 @@ class Application final {
  private:
   ::VkApplicationInfo info_ = impl::MakeApplicationInfo();
 
-  std::vector<VkLayerProperties> supported_layers_;
-  std::vector<VkExtensionProperties> supported_extensions_;
+  std::vector<::VkLayerProperties> supported_layers_;
+  std::vector<::VkExtensionProperties> supported_extensions_;
   std::string name_;
 };
 
