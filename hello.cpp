@@ -14,5 +14,4 @@ int main() {
   auto instance = application.CreateInstance(
       {}, platform_window.RequiredExtensions(), DebugLevel::VERBOSE);
   auto surface = platform_window.CreateSurface(instance.Handle());
-  auto queues = instance.FindRenderQueuesFor(surface);
 }
