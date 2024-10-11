@@ -94,7 +94,11 @@ class PlatformWindow final : public Window {
   DECLARE_MOVE_DELETE(PlatformWindow);
 
   PlatformWindow() = delete;
-  ~PlatformWindow() = default;
+  ~PlatformWindow() {
+    if (glfw_window_) {
+      ::glfwDestroyWindow(glfw_window_);
+    }
+  }
 
   explicit PlatformWindow(std::string_view title, Window::Geometry geometry)
       : BaseType{title, geometry} {

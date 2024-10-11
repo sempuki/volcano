@@ -14,4 +14,7 @@ int main() {
   auto instance = application.CreateInstance(
       {}, platform_window.RequiredExtensions(), DebugLevel::VERBOSE);
   auto surface = platform_window.CreateSurface(instance.Handle());
+  auto device = instance.CreateDevice(surface);
+
+  ::vkDestroySurfaceKHR(instance.Handle(), surface, nullptr);
 }
