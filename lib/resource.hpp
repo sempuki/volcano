@@ -38,6 +38,11 @@ inline auto MakeDebugMessengerCreateInfo() {
       .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT  //
   };
 }
+inline auto MakeRenderPassCreateInfo() {
+  return ::VkRenderPassCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO  //
+  };
+}
 
 template <typename EnumeratorType, typename PropertyType>
 inline void MaybeEnumerateProperties(
@@ -208,6 +213,95 @@ class Application;
 class Instance;
 class Device;
 
+class RenderPass final {
+ public:
+  DECLARE_COPY_DELETE(RenderPass);
+  DECLARE_MOVE_DEFAULT(RenderPass);
+
+  RenderPass() = delete;
+  ~RenderPass() {
+    if (render_pass_ != VK_NULL_HANDLE) {
+      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
+      ::vkDestroyRenderPass(device_, render_pass_, impl::ALLOCATOR);
+    }
+  }
+
+ private:
+  friend class Device;
+
+  explicit RenderPass(::VkDevice device, ::VkFormat format) : device_{device} {
+    CHECK_PRECONDITION(device_ != VK_NULL_HANDLE);
+
+    static std::array<::VkAttachmentDescription, 1>  //
+        color_attachment{::VkAttachmentDescription{
+            .samples = VK_SAMPLE_COUNT_1_BIT,                    //
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,               //
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,             //
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,    //
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,  //
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,          //
+            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR       //
+        }};
+
+    static const std::array<const ::VkAttachmentReference, 1>  //
+        color_reference{::VkAttachmentReference{
+            .attachment = 0,                                    //
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL  //
+        }};
+
+    static const std::array<const ::VkSubpassDescription, 1>  //
+        subpass_description{::VkSubpassDescription{
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,  //
+            .inputAttachmentCount = 0,                             //
+            .pInputAttachments = nullptr,                          //
+            .colorAttachmentCount = color_reference.size(),        //
+            .pColorAttachments = color_reference.data(),           //
+            .pResolveAttachments = nullptr,                        //
+            .pDepthStencilAttachment = nullptr,                    //
+            .preserveAttachmentCount = 0,                          //
+            .pPreserveAttachments = nullptr                        //
+        }};
+
+    static const ::VkSubpassDependency src_subpass_dependency{
+        .srcSubpass = VK_SUBPASS_EXTERNAL,
+        .dstSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT};
+
+    static const ::VkSubpassDependency dst_subpass_dependency{
+        .srcSubpass = 0,
+        .dstSubpass = VK_SUBPASS_EXTERNAL,
+        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        .dstAccessMask = 0,
+        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT};
+
+    static const std::array<const ::VkSubpassDependency, 2>
+        subpass_dependencies{src_subpass_dependency, dst_subpass_dependency};
+
+    color_attachment.front().format = format;
+    render_pass_info_.attachmentCount = color_attachment.size();
+    render_pass_info_.pAttachments = color_attachment.data();
+    render_pass_info_.subpassCount = subpass_description.size();
+    render_pass_info_.pSubpasses = subpass_description.data();
+    render_pass_info_.dependencyCount = subpass_dependencies.size();
+    render_pass_info_.pDependencies = subpass_dependencies.data();
+
+    ::VkResult result =
+        ::vkCreateRenderPass(device, std::addressof(render_pass_info_),
+                             impl::ALLOCATOR, std::addressof(render_pass_));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
+  ::VkDevice device_ = VK_NULL_HANDLE;
+  ::VkRenderPass render_pass_ = VK_NULL_HANDLE;
+  ::VkRenderPassCreateInfo render_pass_info_ = impl::MakeRenderPassCreateInfo();
+};
+
 class Queue final {
  public:
   DECLARE_COPY_DELETE(Queue);
@@ -224,6 +318,7 @@ class Queue final {
   explicit Queue(::VkDevice device,                 //
                  std::uint32_t queue_family_index,  //
                  std::uint32_t queue_index) {
+    CHECK_PRECONDITION(device != VK_NULL_HANDLE);
     ::vkGetDeviceQueue(device, queue_family_index, queue_index,
                        std::addressof(queue_));
   }
@@ -246,14 +341,25 @@ class Device final {
     return Queue{device_, queue_families_.front(), 0u};
   }
 
+  RenderPass CreateRenderPass(::VkFormat requested) {
+    CHECK_PRECONDITION(std::any_of(surface_formats_.begin(),
+                                   surface_formats_.end(),
+                                   [requested](::VkSurfaceFormatKHR supported) {
+                                     return supported.format == requested;
+                                   }));
+    return RenderPass{device_, requested};
+  }
+
  private:
   friend class Instance;
 
   explicit Device(::VkPhysicalDevice phys_device,
                   const ::VkPhysicalDeviceFeatures& phys_device_features,
+                  std::vector<::VkSurfaceFormatKHR> surface_formats,
                   std::vector<const char*> extensions,
                   std::vector<std::uint32_t> queue_families)
       : phys_device_features_{phys_device_features},
+        surface_formats_{std::move(surface_formats)},
         extensions_{std::move(extensions)},
         queue_families_{std::move(queue_families)} {
     static const std::array<float, 1> queue_priority{1.0f};  // [0.0, 1.0]
@@ -278,9 +384,12 @@ class Device final {
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
+
   ::VkDeviceCreateInfo device_info_ = impl::MakeDeviceCreateInfo();
-  ::VkPhysicalDeviceFeatures phys_device_features_;
+  ::VkPhysicalDeviceFeatures phys_device_features_{};
+
   std::vector<::VkDeviceQueueCreateInfo> device_queue_infos_;
+  std::vector<::VkSurfaceFormatKHR> surface_formats_;
   std::vector<const char*> extensions_;
   std::vector<std::uint32_t> queue_families_;
 };
@@ -330,8 +439,14 @@ class Instance final {
     std::uint32_t selected_queue_family_index =
         result.front().queue_family_index;
 
+    impl::MaybeEnumerateProperties(
+        std::bind_front(::vkGetPhysicalDeviceSurfaceFormatsKHR,
+                        selected_phys_device, surface),
+        InOut(device_surface_formats_[selected_phys_device]));
+
     return Device{selected_phys_device,
                   device_features_[selected_phys_device],
+                  device_surface_formats_[selected_phys_device],
                   {impl::SWAPCHAIN_EXTENSION_NAME},
                   {{selected_queue_family_index}}};
   }
@@ -497,6 +612,8 @@ class Instance final {
       queue_family_properties_;
   std::map<::VkPhysicalDevice, std::vector<::VkExtensionProperties>>
       supported_device_extension_properties_;
+  std::map<::VkPhysicalDevice, std::vector<::VkSurfaceFormatKHR>>
+      device_surface_formats_;
 
   static ::VkDebugUtilsMessageSeverityFlagsEXT ConvertToDebugSeverity(
       DebugLevel _) {
@@ -529,8 +646,7 @@ class Instance final {
     CHECK_PRECONDITION(
         data->sType ==
         VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT);
-
-    std::print("[{}]<{}> {}\n", impl::ConvertToString(message_severity),
+    std::print("[{}] <{}> {}\n", impl::ConvertToString(message_severity),
                data->pMessageIdName, data->pMessage);
     // std::cout << "Queue Labels: \n";
     // for (std::uint32_t i = 0; i < data->queueLabelCount; ++i) {

@@ -18,6 +18,7 @@ int main() {
   auto surface = platform_window.CreateSurface(instance.Handle());
   auto device = instance.CreateDevice(surface);
   auto queue = device.CreateQueue();
+  auto render_pass = device.CreateRenderPass(VK_FORMAT_B8G8R8A8_UNORM);
 
   ::vkDestroySurfaceKHR(instance.Handle(), surface, nullptr);
 }
