@@ -43,6 +43,16 @@ inline auto MakeRenderPassCreateInfo() {
       .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO  //
   };
 }
+inline auto MakePipelineLayoutCreateInfo() {
+  return ::VkPipelineLayoutCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO  //
+  };
+}
+inline auto MakeShaderModuleCreateInfo() {
+  return ::VkShaderModuleCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO  //
+  };
+}
 
 template <typename EnumeratorType, typename PropertyType>
 inline void MaybeEnumerateProperties(
@@ -213,6 +223,28 @@ class Application;
 class Instance;
 class Device;
 
+class Queue final {
+ public:
+  DECLARE_COPY_DELETE(Queue);
+  DECLARE_MOVE_DEFAULT(Queue);
+
+  Queue() = delete;
+  ~Queue() = default;
+
+ private:
+  ::VkQueue queue_ = VK_NULL_HANDLE;
+
+  friend class Device;
+
+  explicit Queue(::VkDevice device,                 //
+                 std::uint32_t queue_family_index,  //
+                 std::uint32_t queue_index) {
+    CHECK_PRECONDITION(device != VK_NULL_HANDLE);
+    ::vkGetDeviceQueue(device, queue_family_index, queue_index,
+                       std::addressof(queue_));
+  }
+};
+
 class RenderPass final {
  public:
   DECLARE_COPY_DELETE(RenderPass);
@@ -292,7 +324,7 @@ class RenderPass final {
     render_pass_info_.pDependencies = subpass_dependencies.data();
 
     ::VkResult result =
-        ::vkCreateRenderPass(device, std::addressof(render_pass_info_),
+        ::vkCreateRenderPass(device_, std::addressof(render_pass_info_),
                              impl::ALLOCATOR, std::addressof(render_pass_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
@@ -302,26 +334,68 @@ class RenderPass final {
   ::VkRenderPassCreateInfo render_pass_info_ = impl::MakeRenderPassCreateInfo();
 };
 
-class Queue final {
+class PipelineLayout final {
  public:
-  DECLARE_COPY_DELETE(Queue);
-  DECLARE_MOVE_DEFAULT(Queue);
+  DECLARE_COPY_DELETE(PipelineLayout);
+  DECLARE_MOVE_DEFAULT(PipelineLayout);
 
-  Queue() = delete;
-  ~Queue() = default;
+  PipelineLayout() = delete;
+  ~PipelineLayout() {
+    if (pipeline_layout_ != VK_NULL_HANDLE) {
+      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
+      ::vkDestroyPipelineLayout(device_, pipeline_layout_, impl::ALLOCATOR);
+    }
+  }
 
  private:
-  ::VkQueue queue_ = VK_NULL_HANDLE;
-
   friend class Device;
 
-  explicit Queue(::VkDevice device,                 //
-                 std::uint32_t queue_family_index,  //
-                 std::uint32_t queue_index) {
-    CHECK_PRECONDITION(device != VK_NULL_HANDLE);
-    ::vkGetDeviceQueue(device, queue_family_index, queue_index,
-                       std::addressof(queue_));
+  explicit PipelineLayout(::VkDevice device) : device_{device} {
+    ::VkResult result = ::vkCreatePipelineLayout(
+        device_, std::addressof(pipeline_layout_info_), impl::ALLOCATOR,
+        std::addressof(pipeline_layout_));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
+
+  ::VkDevice device_ = VK_NULL_HANDLE;
+  ::VkPipelineLayout pipeline_layout_ = VK_NULL_HANDLE;
+  ::VkPipelineLayoutCreateInfo pipeline_layout_info_ =
+      impl::MakePipelineLayoutCreateInfo();
+};
+
+class ShaderModule final {
+ public:
+  DECLARE_COPY_DELETE(ShaderModule);
+  DECLARE_MOVE_DEFAULT(ShaderModule);
+
+  ShaderModule() = delete;
+  ~ShaderModule() {
+    if (shader_module_ != VK_NULL_HANDLE) {
+      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
+      ::vkDestroyShaderModule(device_, shader_module_, impl::ALLOCATOR);
+    }
+  }
+
+ private:
+  friend class Device;
+
+  explicit ShaderModule(::VkDevice device,
+                        const std::vector<std::uint32_t>& shader_spirv_bin)
+      : device_{device} {
+    shader_module_info_.pCode = shader_spirv_bin.data();
+    shader_module_info_.codeSize =  // Byte count.
+        shader_spirv_bin.size() * sizeof(std::uint32_t);
+
+    ::VkResult result =
+        ::vkCreateShaderModule(device_, std::addressof(shader_module_info_),
+                               impl::ALLOCATOR, std::addressof(shader_module_));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
+  ::VkDevice device_ = VK_NULL_HANDLE;
+  ::VkShaderModule shader_module_ = VK_NULL_HANDLE;
+  ::VkShaderModuleCreateInfo shader_module_info_ =
+      impl::MakeShaderModuleCreateInfo();
 };
 
 class Device final {
@@ -348,6 +422,15 @@ class Device final {
                                      return supported.format == requested;
                                    }));
     return RenderPass{device_, requested};
+  }
+
+  ShaderModule CreateShaderModule(
+      const std::vector<std::uint32_t>& shader_spirv_bin) {
+    return ShaderModule{device_, shader_spirv_bin};
+  }
+
+  PipelineLayout CreatePipelineLayout() {
+    return PipelineLayout{device_};  //
   }
 
  private:
@@ -694,8 +777,8 @@ class Application final {
       std::print("Supported Instance Extension: {}\n", property.extensionName);
     }
 
-    info_.pApplicationName = name_.c_str();
-    info_.applicationVersion = version;
+    application_info_.pApplicationName = name_.c_str();
+    application_info_.applicationVersion = version;
   }
 
   Instance CreateInstance(std::span<const char*> requested_layers = {},
@@ -720,14 +803,14 @@ class Application final {
       }
     }
 
-    return Instance{std::addressof(info_),  //
-                    std::move(layers),      //
-                    std::move(extensions),  //
+    return Instance{std::addressof(application_info_),  //
+                    std::move(layers),                  //
+                    std::move(extensions),              //
                     debug_level};
   }
 
  private:
-  ::VkApplicationInfo info_ = impl::MakeApplicationInfo();
+  ::VkApplicationInfo application_info_ = impl::MakeApplicationInfo();
 
   std::vector<::VkLayerProperties> supported_layers_;
   std::vector<::VkExtensionProperties> supported_extensions_;

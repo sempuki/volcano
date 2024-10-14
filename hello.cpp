@@ -1,6 +1,7 @@
 #include "lib/glfw_window.hpp"
 #include "lib/render.hpp"
 #include "lib/resource.hpp"
+#include "shaders/shaders.hpp"
 
 #include <cstdlib>
 
@@ -19,6 +20,9 @@ int main() {
   auto device = instance.CreateDevice(surface);
   auto queue = device.CreateQueue();
   auto render_pass = device.CreateRenderPass(VK_FORMAT_B8G8R8A8_UNORM);
+  auto vert_shader = device.CreateShaderModule(vertex_shader_spirv_bin);
+  auto frag_shader = device.CreateShaderModule(fragment_shader_spirv_bin);
+  auto pipeline_layout = device.CreatePipelineLayout();
 
   ::vkDestroySurfaceKHR(instance.Handle(), surface, nullptr);
 }

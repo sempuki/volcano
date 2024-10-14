@@ -9,6 +9,7 @@ cc_binary(
         "//lib:glfw_window",
         "//lib:render",
         "//lib:resource",
+        "//shaders:shaders",
     ],
 )
 
