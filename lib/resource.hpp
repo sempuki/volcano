@@ -53,6 +53,11 @@ inline auto MakeShaderModuleCreateInfo() {
       .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO  //
   };
 }
+inline auto MakeBufferCreateInfo() {
+  return ::VkBufferCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO  //
+  };
+}
 
 template <typename EnumeratorType, typename PropertyType>
 inline void MaybeEnumerateProperties(
@@ -222,6 +227,41 @@ enum class DebugLevel {
 class Application;
 class Instance;
 class Device;
+
+class Buffer final {
+ public:
+  DECLARE_COPY_DELETE(Buffer);
+  DECLARE_MOVE_DEFAULT(Buffer);
+
+  Buffer() = delete;
+  ~Buffer() {
+    if (buffer_ != VK_NULL_HANDLE) {
+      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
+      ::vkDestroyBuffer(device_, buffer_, impl::ALLOCATOR);
+    }
+  }
+
+ private:
+  friend class Device;
+
+  explicit Buffer(::VkDevice device,          //
+                  ::VkDeviceSize byte_count,  //
+                  ::VkBufferUsageFlags buffer_usage)
+      : device_{device} {
+    buffer_info_.size = byte_count;
+    buffer_info_.usage = buffer_usage;
+    buffer_info_.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    ::VkResult result =
+        ::vkCreateBuffer(device_, std::addressof(buffer_info_), impl::ALLOCATOR,
+                         std::addressof(buffer_));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
+  ::VkDevice device_ = VK_NULL_HANDLE;
+  ::VkBuffer buffer_ = VK_NULL_HANDLE;
+  ::VkBufferCreateInfo buffer_info_ = impl::MakeBufferCreateInfo();
+};
 
 class Queue final {
  public:
@@ -408,6 +448,15 @@ class Device final {
     if (device_ != VK_NULL_HANDLE) {
       ::vkDestroyDevice(device_, impl::ALLOCATOR);
     }
+  }
+
+  Buffer CreateBuffer(::VkDeviceSize requested_byte_count,
+                      ::VkBufferUsageFlags requested_buffer_usage) {
+    return Buffer{
+        device_,
+        requested_byte_count,
+        requested_buffer_usage,
+    };
   }
 
   Queue CreateQueue() {
