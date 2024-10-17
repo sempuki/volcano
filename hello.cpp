@@ -47,6 +47,9 @@ int main() {
       vert2f_color3f_pack.size() *            //
       vert2f_color3f_pack.front().size() *    //
       sizeof(vert2f_color3f_pack.front().front());
+  const std::span<const std::byte> vert_buffer_bytes = {
+      reinterpret_cast<const std::byte*>(vert2f_color3f_pack.data()),
+      vert_buffer_byte_count};
 
   Application application{"hello", 0};
   glfw::PlatformWindow platform_window{"hello-window",
@@ -64,9 +67,10 @@ int main() {
   auto buffer = device.CreateBuffer(vert_buffer_byte_count,
                                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
   auto memory = device.AllocateDeviceMemory(
-      buffer.MemoryRequirements(), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+      buffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  memory.CopyInitialize(vert_buffer_bytes);
 
   ::vkDestroySurfaceKHR(instance.Handle(), surface, nullptr);
 }

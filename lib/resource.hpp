@@ -274,10 +274,6 @@ class Buffer final {
     }
   }
 
-  const ::VkMemoryRequirements& MemoryRequirements() const {
-    return memory_requirements_;
-  }
-
  private:
   friend class Device;
 
@@ -317,11 +313,24 @@ class DeviceMemory final {
     }
   }
 
+  void CopyInitialize(std::span<const std::byte> data) {
+    CHECK_PRECONDITION(data.size() <= memory_info_.allocationSize);
+    CHECK_PRECONDITION(host_bytes_);
+
+    std::copy(data.begin(), data.end(), host_bytes_);
+    ::vkUnmapMemory(device_, memory_);
+
+    host_bytes_ = nullptr;
+  }
+
  private:
   friend class Device;
 
-  explicit DeviceMemory(::VkDevice device, ::VkDeviceSize required_byte_count,
-                        std::uint32_t memory_type_index)
+  explicit DeviceMemory(::VkDevice device,                    //
+                        ::VkDeviceSize required_byte_offset,  //
+                        ::VkDeviceSize required_byte_count,   //
+                        std::uint32_t memory_type_index,      //
+                        ::VkBuffer target_buffer)
       : device_{device} {
     memory_info_.allocationSize = required_byte_count;
     memory_info_.memoryTypeIndex = memory_type_index;
@@ -330,8 +339,21 @@ class DeviceMemory final {
         ::vkAllocateMemory(device_, std::addressof(memory_info_),
                            impl::ALLOCATOR, std::addressof(memory_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
+
+    result = ::vkBindBufferMemory(device_, target_buffer, memory_,
+                                  required_byte_offset);
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+
+    void* host_pointer = nullptr;
+    ::VkMemoryMapFlags flags = 0;
+    result = ::vkMapMemory(device_, memory_, required_byte_offset,
+                           VK_WHOLE_SIZE, flags, std::addressof(host_pointer));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+
+    host_bytes_ = reinterpret_cast<std::byte*>(host_pointer);
   }
 
+  std::byte* host_bytes_ = nullptr;
   ::VkDevice device_ = VK_NULL_HANDLE;
   ::VkDeviceMemory memory_ = VK_NULL_HANDLE;
   ::VkMemoryAllocateInfo memory_info_ = impl::MakeMemoryAllocateInfo();
@@ -517,25 +539,28 @@ class Device final {
   }
 
   DeviceMemory AllocateDeviceMemory(
-      const ::VkMemoryRequirements& memory_requirements,
-      ::VkMemoryPropertyFlags required_memory_flags) {
+      const Buffer& buffer, ::VkMemoryPropertyFlags required_memory_flags) {
+    bool found = false;
+
     std::uint32_t memory_type_index = 0;
-    for (; memory_type_index < 32u &&
+    for (; memory_type_index < (sizeof(std::uint32_t) * 8) &&
            memory_type_index < phys_device_memory_properties_.memoryTypeCount;
          ++memory_type_index) {
-      if ((memory_requirements.memoryTypeBits & (1u << memory_type_index)) &&
+      if ((buffer.memory_requirements_.memoryTypeBits &
+           (1u << memory_type_index)) &&
           impl::HasAllFlagsOfInterest(
               phys_device_memory_properties_.memoryTypes[memory_type_index]
                   .propertyFlags,
               required_memory_flags)) {
+        found = true;
         break;
       }
     }
-    CHECK_POSTCONDITION(memory_type_index != 32u &&
-                        memory_type_index !=
-                            phys_device_memory_properties_.memoryTypeCount);
+    CHECK_POSTCONDITION(found);
 
-    return DeviceMemory{device_, memory_requirements.size, memory_type_index};
+    ::VkDeviceSize byte_offset = 0;
+    return DeviceMemory{device_, byte_offset, buffer.memory_requirements_.size,
+                        memory_type_index, buffer.buffer_};
   }
 
   RenderPass CreateRenderPass(::VkFormat requested) {
