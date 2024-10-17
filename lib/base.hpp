@@ -52,7 +52,7 @@ static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
 #define CHECK_INVARIANT(invariant__) CHECK_CONTRACT__(invariant__, "Invariant")
 #define CHECK_UNREACHABLE() CHECK_CONTRACT__(false, "Unreachable")
 
-namespace volc {
+namespace volcano {
 
 template <typename Type>
 class CheckedPointer {
@@ -191,4 +191,4 @@ void InvokeWithContinuation(ContinuationType&& continuation,
   }
 }
 
-}  // namespace volc
+}  // namespace volcano

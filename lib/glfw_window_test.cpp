@@ -2,7 +2,7 @@
 
 #include "lib/testing.hpp"
 
-namespace volc::glfw {
+namespace volcano::glfw {
 
 TEST_CASE("GlfwWindow") {
   PlatformWindow platform_window{"test-glfw-window",
@@ -11,4 +11,4 @@ TEST_CASE("GlfwWindow") {
   SECTION("ShouldPass") { REQUIRE(true); }
 }
 
-}  // namespace volc::glfw
+}  // namespace volcano::glfw

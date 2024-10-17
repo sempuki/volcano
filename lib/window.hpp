@@ -2,7 +2,7 @@
 
 #include "lib/base.hpp"
 
-namespace volc {
+namespace volcano {
 
 class Renderer;
 
@@ -22,15 +22,16 @@ class Window {
   explicit Window(std::string_view title, Geometry geometry)
       : title_{title}, geometry_{geometry} {}
 
-  std::string_view title() const { return title_; }
-  Geometry geometry() const { return geometry_; }
-
-  void set_renderer(std::unique_ptr<Renderer> renderer) {
+  void SetRenderer(std::unique_ptr<Renderer> renderer) {
     renderer_ = std::move(renderer);
   }
 
+  virtual std::span<const char*> RequiredExtensions() const = 0;
+  virtual ::VkSurfaceKHR CreateSurface(::VkInstance instance) = 0;
+  virtual void Show() = 0;
+
  protected:
-  Renderer& renderer() {
+  Renderer& GetRenderer() {
     CHECK_PRECONDITION(renderer_);
     return *renderer_;
   }
@@ -42,4 +43,4 @@ class Window {
   std::unique_ptr<Renderer> renderer_;
 };
 
-}  // namespace volc
+}  // namespace volcano

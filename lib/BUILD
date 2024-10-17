@@ -15,6 +15,17 @@ cc_library(
 #-------------------------------------------------------------------------------
 
 cc_library(
+    name = "default_render",
+    hdrs = ["default_render.hpp"],
+    deps = [
+        ":base",
+        ":render",
+    ],
+)
+
+#-------------------------------------------------------------------------------
+
+cc_library(
     name = "glfw_window",
     hdrs = ["glfw_window.hpp"],
     deps = [
