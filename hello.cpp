@@ -43,6 +43,10 @@ int main() {
           vert_scale * std::sqrt(3.0f) * 0.25f,  // Y
           0.0f, 0.0f, 1.0f                       // RGB
       }};
+  const std::size_t vert_buffer_byte_count =  //
+      vert2f_color3f_pack.size() *            //
+      vert2f_color3f_pack.front().size() *    //
+      sizeof(vert2f_color3f_pack.front().front());
 
   Application application{"hello", 0};
   glfw::PlatformWindow platform_window{"hello-window",
@@ -57,9 +61,12 @@ int main() {
   auto vert_shader = device.CreateShaderModule(vertex_shader_spirv_bin);
   auto frag_shader = device.CreateShaderModule(fragment_shader_spirv_bin);
   auto pipeline_layout = device.CreatePipelineLayout();
-  auto buffer =
-      device.CreateBuffer(vert2f_color3f_pack.size() * sizeof(float) * 5,
-                          VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+  auto buffer = device.CreateBuffer(vert_buffer_byte_count,
+                                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+  auto memory = device.AllocateDeviceMemory(
+      buffer.MemoryRequirements(), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
   ::vkDestroySurfaceKHR(instance.Handle(), surface, nullptr);
 }
