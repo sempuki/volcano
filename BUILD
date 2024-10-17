@@ -8,7 +8,7 @@ cc_binary(
     deps = [
         "//lib:glfw_window",
         "//lib:render",
-        "//lib:default_render",
+        "//lib:surface_render",
         "//lib:resource",
         "//shaders:shaders",
     ],

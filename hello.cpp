@@ -1,7 +1,7 @@
-#include "lib/default_render.hpp"
 #include "lib/glfw_window.hpp"
 #include "lib/render.hpp"
 #include "lib/resource.hpp"
+#include "lib/surface_render.hpp"
 #include "shaders/shaders.hpp"
 
 #include <cmath>
@@ -76,7 +76,7 @@ int main() {
   auto command_pool = device.CreateCommandPool(queue.FamilyIndex());
 
   std::unique_ptr<Renderer> renderer =
-      std::make_unique<DefaultRenderer>(surface);
+      std::make_unique<SurfaceRenderer>(surface);
 
   window->SetRenderer(std::move(renderer));
   window->Show();
