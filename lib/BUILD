@@ -15,8 +15,8 @@ cc_library(
 #-------------------------------------------------------------------------------
 
 cc_library(
-    name = "default_render",
-    hdrs = ["default_render.hpp"],
+    name = "surface_render",
+    hdrs = ["surface_render.hpp"],
     deps = [
         ":base",
         ":render",
