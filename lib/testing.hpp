@@ -10,7 +10,7 @@
 #include "catch2/reporters/catch_reporter_event_listener.hpp"
 #include "catch2/reporters/catch_reporter_registrars.hpp"
 
-namespace volc {
+namespace volcano {
 
 // See: external/catch2/examples/210-Evt-EventListeners.cpp
 struct SummaryReporter : Catch::EventListenerBase {
@@ -32,4 +32,4 @@ struct SummaryReporter : Catch::EventListenerBase {
   std::vector<std::stringstream> report_;
 };
 
-}  // namespace volc
+}  // namespace volcano

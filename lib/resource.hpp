@@ -10,7 +10,7 @@
 
 #include "lib/base.hpp"
 
-namespace volc {
+namespace volcano {
 namespace impl {
 
 inline auto MakeApplicationInfo() {
@@ -641,6 +641,7 @@ class Device final {
       ::VkPhysicalDevice phys_device,
       const ::VkPhysicalDeviceFeatures& phys_device_features,
       const ::VkPhysicalDeviceMemoryProperties& phys_device_memory_properties,
+      const ::VkSurfaceCapabilitiesKHR& surface_capabilities,
       std::vector<::VkSurfaceFormatKHR> surface_formats,
       std::vector<const char*> extensions,
       std::vector<std::uint32_t> queue_families)
@@ -676,8 +677,9 @@ class Device final {
   ::VkPhysicalDeviceFeatures phys_device_features_;
   ::VkPhysicalDeviceMemoryProperties phys_device_memory_properties_;
 
-  std::vector<::VkDeviceQueueCreateInfo> device_queue_infos_;
+  ::VkSurfaceCapabilitiesKHR surface_capabilities_;
   std::vector<::VkSurfaceFormatKHR> surface_formats_;
+  std::vector<::VkDeviceQueueCreateInfo> device_queue_infos_;
   std::vector<const char*> device_extensions_;
   std::vector<std::uint32_t> queue_families_;
 };
@@ -703,7 +705,7 @@ class Instance final {
   Device CreateDevice(::VkSurfaceKHR surface) {
     CHECK_PRECONDITION(surface != VK_NULL_HANDLE);
 
-    std::vector<FindQueueFamilyResult> result = SelectQueueFamilyIf(
+    std::vector<FindQueueFamilyResult> selected_result = SelectQueueFamilyIf(
         [surface](
             ::VkPhysicalDevice phys_device,
             const ::VkPhysicalDeviceProperties& phys_device_property,
@@ -713,29 +715,37 @@ class Instance final {
                VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) &&
               (queue_family_properties.queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
             ::VkBool32 is_supported = VK_FALSE;
-            ::VkResult result = ::vkGetPhysicalDeviceSurfaceSupportKHR(
+            ::VkResult selected_result = ::vkGetPhysicalDeviceSurfaceSupportKHR(
                 phys_device, queue_family_i, surface,
                 std::addressof(is_supported));
-            CHECK_POSTCONDITION(result == VK_SUCCESS);
+            CHECK_POSTCONDITION(selected_result == VK_SUCCESS);
             return is_supported;
           }
           return false;
         });
-    CHECK_POSTCONDITION(result.size());
-    CHECK_POSTCONDITION(result.front().phys_device != VK_NULL_HANDLE);
+    CHECK_POSTCONDITION(selected_result.size());
+    CHECK_POSTCONDITION(selected_result.front().phys_device != VK_NULL_HANDLE);
 
-    ::VkPhysicalDevice selected_phys_device = result.front().phys_device;
+    ::VkPhysicalDevice selected_phys_device =
+        selected_result.front().phys_device;
     std::uint32_t selected_queue_family_index =
-        result.front().queue_family_index;
+        selected_result.front().queue_family_index;
 
     impl::MaybeEnumerateProperties(
         std::bind_front(::vkGetPhysicalDeviceSurfaceFormatsKHR,
                         selected_phys_device, surface),
         InOut(phys_device_surface_formats_[selected_phys_device]));
 
+    ::VkResult result = ::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        selected_phys_device, surface,
+        std::addressof(
+            phys_device_surface_capabilities_[selected_phys_device]));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+
     return Device{selected_phys_device,
                   phys_device_features_[selected_phys_device],
                   phys_device_memory_properties_[selected_phys_device],
+                  phys_device_surface_capabilities_[selected_phys_device],
                   phys_device_surface_formats_[selected_phys_device],
                   {impl::SWAPCHAIN_EXTENSION_NAME},
                   {{selected_queue_family_index}}};
@@ -917,6 +927,8 @@ class Instance final {
       supported_device_extension_properties_;
   std::map<::VkPhysicalDevice, std::vector<::VkSurfaceFormatKHR>>
       phys_device_surface_formats_;
+  std::map<::VkPhysicalDevice, ::VkSurfaceCapabilitiesKHR>
+      phys_device_surface_capabilities_;
 
   static ::VkDebugUtilsMessageSeverityFlagsEXT ConvertToDebugSeverity(
       DebugLevel _) {
@@ -1038,4 +1050,4 @@ class Application final {
   std::string name_;
 };
 
-}  // namespace volc
+}  // namespace volcano

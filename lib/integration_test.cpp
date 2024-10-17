@@ -3,7 +3,7 @@
 
 #include "lib/testing.hpp"
 
-namespace volc {
+namespace volcano {
 
 TEST_CASE("Integration") {
   Application application{"test-app", 0};
@@ -18,4 +18,4 @@ TEST_CASE("Integration") {
   SECTION("ShouldPass") { REQUIRE(true); }
 }
 
-}  // namespace volc
+}  // namespace volcano

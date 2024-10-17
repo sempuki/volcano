@@ -1,3 +1,4 @@
+#include "lib/default_render.hpp"
 #include "lib/glfw_window.hpp"
 #include "lib/render.hpp"
 #include "lib/resource.hpp"
@@ -20,7 +21,7 @@ struct Vertex2D_ColorF_pack {
   ColorF color;
 };
 
-using namespace volc;
+using namespace volcano;
 
 int main() {
   std::cout << "Hello world " << std::endl;
@@ -52,12 +53,13 @@ int main() {
       vert_buffer_byte_count};
 
   Application application{"hello", 0};
-  glfw::PlatformWindow platform_window{"hello-window",
-                                       {.width = 800, .height = 600}};
+  std::unique_ptr<Window> window = std::make_unique<glfw::PlatformWindow>(
+      "hello-window", Window::Geometry{.width = 800, .height = 600}  //
+  );
 
-  auto instance = application.CreateInstance(
-      {}, platform_window.RequiredExtensions(), DebugLevel::VERBOSE);
-  auto surface = platform_window.CreateSurface(instance.Handle());
+  auto instance = application.CreateInstance({}, window->RequiredExtensions(),
+                                             DebugLevel::VERBOSE);
+  auto surface = window->CreateSurface(instance.Handle());
   auto device = instance.CreateDevice(surface);
   auto queue = device.CreateQueue();
   auto render_pass = device.CreateRenderPass(VK_FORMAT_B8G8R8A8_UNORM);
@@ -72,6 +74,12 @@ int main() {
                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   memory.CopyInitialize(vert_buffer_bytes);
   auto command_pool = device.CreateCommandPool(queue.FamilyIndex());
+
+  std::unique_ptr<Renderer> renderer =
+      std::make_unique<DefaultRenderer>(surface);
+
+  window->SetRenderer(std::move(renderer));
+  window->Show();
 
   ::vkDestroySurfaceKHR(instance.Handle(), surface, nullptr);
 }

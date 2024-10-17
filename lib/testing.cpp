@@ -5,7 +5,7 @@
 #include <iomanip>
 #include <iostream>
 
-namespace volc {
+namespace volcano {
 
 constexpr const std::string_view test_marker{"\033[1;34m=\033[0m"};
 constexpr const std::string_view section_marker{"\033[1;33m-\033[0m"};
@@ -66,4 +66,4 @@ void SummaryReporter::assertionEnded(Catch::AssertionStats const& stats) {}
 
 CATCH_REGISTER_LISTENER(SummaryReporter)
 
-}  // namespace volc
+}  // namespace volcano
