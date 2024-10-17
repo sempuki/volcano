@@ -39,6 +39,11 @@ inline auto MakeBufferCreateInfo() {
       .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO  //
   };
 }
+inline auto MakeCommandPoolCreateInfo() {
+  return ::VkCommandPoolCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO  //
+  };
+}
 inline auto MakeMemoryAllocateInfo() {
   return ::VkMemoryAllocateInfo{
       .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO  //
@@ -239,6 +244,7 @@ class Application;
 class Instance;
 class Device;
 
+//------------------------------------------------------------------------------
 class Queue final {
  public:
   DECLARE_COPY_DELETE(Queue);
@@ -247,20 +253,25 @@ class Queue final {
   Queue() = delete;
   ~Queue() = default;
 
+  std::uint32_t FamilyIndex() const { return queue_family_index_; }
+
  private:
   ::VkQueue queue_ = VK_NULL_HANDLE;
+  std::uint32_t queue_family_index_ = std::numeric_limits<std::uint32_t>::max();
 
   friend class Device;
 
   explicit Queue(::VkDevice device,                 //
                  std::uint32_t queue_family_index,  //
-                 std::uint32_t queue_index) {
+                 std::uint32_t queue_index)
+      : queue_family_index_{queue_family_index} {
     CHECK_PRECONDITION(device != VK_NULL_HANDLE);
     ::vkGetDeviceQueue(device, queue_family_index, queue_index,
                        std::addressof(queue_));
   }
 };
 
+//------------------------------------------------------------------------------
 class Buffer final {
  public:
   DECLARE_COPY_DELETE(Buffer);
@@ -300,6 +311,7 @@ class Buffer final {
   ::VkMemoryRequirements memory_requirements_;
 };
 
+//------------------------------------------------------------------------------
 class DeviceMemory final {
  public:
   DECLARE_COPY_DELETE(DeviceMemory);
@@ -359,6 +371,40 @@ class DeviceMemory final {
   ::VkMemoryAllocateInfo memory_info_ = impl::MakeMemoryAllocateInfo();
 };
 
+//------------------------------------------------------------------------------
+class CommandPool final {
+ public:
+  DECLARE_COPY_DELETE(CommandPool);
+  DECLARE_MOVE_DEFAULT(CommandPool);
+
+  CommandPool() = delete;
+  ~CommandPool() {
+    if (command_pool_ != VK_NULL_HANDLE) {
+      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
+      ::vkDestroyCommandPool(device_, command_pool_, impl::ALLOCATOR);
+    }
+  }
+
+ private:
+  friend class Device;
+
+  explicit CommandPool(::VkDevice device, std::uint32_t queue_family_index)
+      : device_{device} {
+    command_pool_info_.queueFamilyIndex = queue_family_index;
+
+    ::VkResult result =
+        ::vkCreateCommandPool(device_, std::addressof(command_pool_info_),
+                              impl::ALLOCATOR, std::addressof(command_pool_));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
+  ::VkDevice device_ = VK_NULL_HANDLE;
+  ::VkCommandPool command_pool_ = VK_NULL_HANDLE;
+  ::VkCommandPoolCreateInfo command_pool_info_ =
+      impl::MakeCommandPoolCreateInfo();
+};
+
+//------------------------------------------------------------------------------
 class RenderPass final {
  public:
   DECLARE_COPY_DELETE(RenderPass);
@@ -448,6 +494,7 @@ class RenderPass final {
   ::VkRenderPassCreateInfo render_pass_info_ = impl::MakeRenderPassCreateInfo();
 };
 
+//------------------------------------------------------------------------------
 class PipelineLayout final {
  public:
   DECLARE_COPY_DELETE(PipelineLayout);
@@ -477,6 +524,7 @@ class PipelineLayout final {
       impl::MakePipelineLayoutCreateInfo();
 };
 
+//------------------------------------------------------------------------------
 class ShaderModule final {
  public:
   DECLARE_COPY_DELETE(ShaderModule);
@@ -512,6 +560,7 @@ class ShaderModule final {
       impl::MakeShaderModuleCreateInfo();
 };
 
+//------------------------------------------------------------------------------
 class Device final {
  public:
   DECLARE_COPY_DELETE(Device);
@@ -561,6 +610,10 @@ class Device final {
     ::VkDeviceSize byte_offset = 0;
     return DeviceMemory{device_, byte_offset, buffer.memory_requirements_.size,
                         memory_type_index, buffer.buffer_};
+  }
+
+  CommandPool CreateCommandPool(std::uint32_t queue_family_index) {
+    return CommandPool{device_, queue_family_index};
   }
 
   RenderPass CreateRenderPass(::VkFormat requested) {
@@ -629,6 +682,7 @@ class Device final {
   std::vector<std::uint32_t> queue_families_;
 };
 
+//------------------------------------------------------------------------------
 class Instance final {
  public:
   DECLARE_COPY_DELETE(Instance);
@@ -916,6 +970,7 @@ class Instance final {
   }
 };
 
+//------------------------------------------------------------------------------
 class Application final {
  public:
   DECLARE_COPY_DELETE(Application);
