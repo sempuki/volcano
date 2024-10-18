@@ -86,6 +86,7 @@ cc_library(
     hdrs = ["resource.hpp"],
     deps = [
         ":base",
+        ":surface_render",
     ],
 )
 

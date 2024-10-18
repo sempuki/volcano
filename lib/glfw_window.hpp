@@ -178,9 +178,12 @@ class PlatformWindow final : public Window {
       int width, int height) {
     PlatformWindow* platform_window =
         impl::StaticState::Instance().Find(window);
-
     CHECK_INVARIANT(platform_window);
-    platform_window->GetRenderer().RecreateSwapchain();
+
+    CHECK_PRECONDITION(width > 0 && height > 0)
+    platform_window->GetRenderer().RecreateSwapchain(
+        {.width = static_cast<std::uint32_t>(width),
+         .height = static_cast<std::uint32_t>(height)});
   }
 
   static void WindowRefreshCallback(  //

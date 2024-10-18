@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "lib/base.hpp"
+#include "lib/surface_render.hpp"
 
 namespace volcano {
 namespace impl {
@@ -625,6 +626,11 @@ class Device final {
     return RenderPass{device_, requested};
   }
 
+  std::unique_ptr<SurfaceRenderer> CreateSurfaceRenderer() {
+    return std::make_unique<SurfaceRenderer>(surface_, surface_capabilities_,
+                                             surface_formats_);
+  }
+
   ShaderModule CreateShaderModule(
       const std::vector<std::uint32_t>& shader_spirv_bin) {
     return ShaderModule{device_, shader_spirv_bin};
@@ -638,17 +644,16 @@ class Device final {
   friend class Instance;
 
   explicit Device(
-      ::VkPhysicalDevice phys_device,
-      const ::VkPhysicalDeviceFeatures& phys_device_features,
-      const ::VkPhysicalDeviceMemoryProperties& phys_device_memory_properties,
-      const ::VkSurfaceCapabilitiesKHR& surface_capabilities,
-      std::vector<::VkSurfaceFormatKHR> surface_formats,
-      std::vector<const char*> extensions,
+      ::VkSurfaceKHR surface,                                       //
+      ::VkPhysicalDevice phys_device,                               //
+      const ::VkPhysicalDeviceFeatures& features,                   //
+      const ::VkPhysicalDeviceMemoryProperties& memory_properties,  //
+      std::vector<const char*> device_extensions,                   //
       std::vector<std::uint32_t> queue_families)
-      : phys_device_features_{phys_device_features},
-        phys_device_memory_properties_{phys_device_memory_properties},
-        surface_formats_{std::move(surface_formats)},
-        device_extensions_{std::move(extensions)},
+      : surface_{surface},
+        phys_device_features_{features},
+        phys_device_memory_properties_{memory_properties},
+        device_extensions_{std::move(device_extensions)},
         queue_families_{std::move(queue_families)} {
     static const std::array<float, 1> queue_priority{1.0f};  // [0.0, 1.0]
 
@@ -663,12 +668,21 @@ class Device final {
     device_info_.pQueueCreateInfos = device_queue_infos_.data();
     device_info_.enabledExtensionCount = device_extensions_.size();
     device_info_.ppEnabledExtensionNames = device_extensions_.data();
-    device_info_.pEnabledFeatures = std::addressof(phys_device_features);
+    device_info_.pEnabledFeatures = std::addressof(phys_device_features_);
 
     ::VkResult result =
         ::vkCreateDevice(phys_device, std::addressof(device_info_),
                          impl::ALLOCATOR, std::addressof(device_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
+
+    result = ::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        phys_device, surface_, std::addressof(surface_capabilities_));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+
+    impl::MaybeEnumerateProperties(
+        std::bind_front(::vkGetPhysicalDeviceSurfaceFormatsKHR, phys_device,
+                        surface_),
+        InOut(surface_formats_));
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
@@ -677,8 +691,10 @@ class Device final {
   ::VkPhysicalDeviceFeatures phys_device_features_;
   ::VkPhysicalDeviceMemoryProperties phys_device_memory_properties_;
 
+  ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   ::VkSurfaceCapabilitiesKHR surface_capabilities_;
   std::vector<::VkSurfaceFormatKHR> surface_formats_;
+
   std::vector<::VkDeviceQueueCreateInfo> device_queue_infos_;
   std::vector<const char*> device_extensions_;
   std::vector<std::uint32_t> queue_families_;
@@ -731,22 +747,10 @@ class Instance final {
     std::uint32_t selected_queue_family_index =
         selected_result.front().queue_family_index;
 
-    impl::MaybeEnumerateProperties(
-        std::bind_front(::vkGetPhysicalDeviceSurfaceFormatsKHR,
-                        selected_phys_device, surface),
-        InOut(phys_device_surface_formats_[selected_phys_device]));
-
-    ::VkResult result = ::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        selected_phys_device, surface,
-        std::addressof(
-            phys_device_surface_capabilities_[selected_phys_device]));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
-
-    return Device{selected_phys_device,
+    return Device{surface,
+                  selected_phys_device,
                   phys_device_features_[selected_phys_device],
                   phys_device_memory_properties_[selected_phys_device],
-                  phys_device_surface_capabilities_[selected_phys_device],
-                  phys_device_surface_formats_[selected_phys_device],
                   {impl::SWAPCHAIN_EXTENSION_NAME},
                   {{selected_queue_family_index}}};
   }
@@ -925,10 +929,6 @@ class Instance final {
       phys_device_queue_family_properties_;
   std::map<::VkPhysicalDevice, std::vector<::VkExtensionProperties>>
       supported_device_extension_properties_;
-  std::map<::VkPhysicalDevice, std::vector<::VkSurfaceFormatKHR>>
-      phys_device_surface_formats_;
-  std::map<::VkPhysicalDevice, ::VkSurfaceCapabilitiesKHR>
-      phys_device_surface_capabilities_;
 
   static ::VkDebugUtilsMessageSeverityFlagsEXT ConvertToDebugSeverity(
       DebugLevel _) {
