@@ -49,18 +49,20 @@ int main() {
       vert2f_color3f_pack.front().size() *    //
       sizeof(vert2f_color3f_pack.front().front());
   const std::span<const std::byte> vert_buffer_bytes = {
-      reinterpret_cast<const std::byte*>(vert2f_color3f_pack.data()),
-      vert_buffer_byte_count};
+      reinterpret_cast<const std::byte*>(vert2f_color3f_pack.data()),  //
+      vert_buffer_byte_count                                           //
+  };
 
   Application application{"hello", 0};
   std::unique_ptr<Window> window = std::make_unique<glfw::PlatformWindow>(
       "hello-window", Window::Geometry{.width = 800, .height = 600}  //
   );
 
-  auto instance = application.CreateInstance({}, window->RequiredExtensions(),
-                                             DebugLevel::VERBOSE);
+  auto instance = application.CreateInstance(  //
+      {}, window->RequiredExtensions(), DebugLevel::VERBOSE);
   auto surface = window->CreateSurface(instance.Handle());
   auto device = instance.CreateDevice(surface);
+
   auto queue = device.CreateQueue();
   auto render_pass = device.CreateRenderPass(VK_FORMAT_B8G8R8A8_UNORM);
   auto vert_shader = device.CreateShaderModule(vertex_shader_spirv_bin);
@@ -75,10 +77,7 @@ int main() {
   memory.CopyInitialize(vert_buffer_bytes);
   auto command_pool = device.CreateCommandPool(queue.FamilyIndex());
 
-  std::unique_ptr<Renderer> renderer =
-      std::make_unique<SurfaceRenderer>(surface);
-
-  window->SetRenderer(std::move(renderer));
+  window->SetRenderer(device.CreateSurfaceRenderer());
   window->Show();
 
   ::vkDestroySurfaceKHR(instance.Handle(), surface, nullptr);
