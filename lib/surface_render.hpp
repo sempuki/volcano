@@ -23,7 +23,22 @@ class SurfaceRenderer final : public Renderer {
 
   bool HasSwapchain() const override { return has_swapchain_; }
 
-  void RecreateSwapchain(::VkExtent2D geometry) override {}
+  void RecreateSwapchain(::VkExtent2D geometry) override {
+    const bool can_create_swapchain = {
+        geometry.width >= surface_capabilities_.minImageExtent.width &&    //
+        geometry.width <= surface_capabilities_.maxImageExtent.width &&    //
+        geometry.width > 0 &&                                              //
+        geometry.height >= surface_capabilities_.minImageExtent.height &&  //
+        geometry.height <= surface_capabilities_.maxImageExtent.height &&  //
+        geometry.height > 0};
+
+    if (!can_create_swapchain) {
+      has_swapchain_ = false;
+      return;
+    }
+
+    // has_swapchain_ = swapchain_ != VK_NULL_HANDLE;
+  }
 
   void Render() override {}
 
