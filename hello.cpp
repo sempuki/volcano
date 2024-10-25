@@ -76,6 +76,8 @@ int main() {
                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   memory.CopyInitialize(vert_buffer_bytes);
   auto command_pool = device.CreateCommandPool(queue.FamilyIndex());
+  auto swapchain = device.CreateSwapchain(VK_FORMAT_B8G8R8A8_UNORM,
+                                          VK_PRESENT_MODE_FIFO_KHR);
 
   window->SetRenderer(device.CreateSurfaceRenderer());
   window->Show();
