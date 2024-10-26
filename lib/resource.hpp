@@ -97,14 +97,13 @@ class Buffer final {
                          std::addressof(buffer_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
-    ::vkGetBufferMemoryRequirements(device_, buffer_,
-                                    std::addressof(memory_requirements_));
+    memory_requirements_ = vk::MemoryRequirements{device_, buffer_};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
   ::VkBuffer buffer_ = VK_NULL_HANDLE;
   vk::BufferCreateInfo buffer_info_;
-  ::VkMemoryRequirements memory_requirements_;
+  vk::MemoryRequirements memory_requirements_;
 };
 
 //------------------------------------------------------------------------------
@@ -509,7 +508,7 @@ class Device final {
     for (; memory_type_index < (sizeof(std::uint32_t) * 8) &&
            memory_type_index < phys_device_memory_properties_.memoryTypeCount;
          ++memory_type_index) {
-      if ((buffer.memory_requirements_.memoryTypeBits &
+      if ((buffer.memory_requirements_().memoryTypeBits &
            (1u << memory_type_index)) &&
           vk::HasAllFlags(
               phys_device_memory_properties_.memoryTypes[memory_type_index]
@@ -522,8 +521,9 @@ class Device final {
     CHECK_POSTCONDITION(found);
 
     ::VkDeviceSize byte_offset = 0;
-    return DeviceMemory{device_, byte_offset, buffer.memory_requirements_.size,
-                        memory_type_index, buffer.buffer_};
+    return DeviceMemory{device_, byte_offset,
+                        buffer.memory_requirements_().size, memory_type_index,
+                        buffer.buffer_};
   }
 
   CommandPool CreateCommandPool(std::uint32_t queue_family_index) {
@@ -955,21 +955,17 @@ class Application final {
 
   explicit Application(std::string_view name, std::uint32_t version)
       : name_{name} {
-    vk::MaybeEnumerateProperties(::vkEnumerateInstanceLayerProperties,
-                                 InOut(supported_layers_));
-    for (auto&& property : supported_layers_) {
-      vk::MaybeEnumerateProperties(
-          std::bind_front(::vkEnumerateInstanceExtensionProperties,
-                          property.layerName),
-          InOut(supported_extensions_));
+    for (auto&& _ : supported_layers_()) {
+      supported_extensions_[_.layerName] =
+          vk::InstanceExtensionProperties{_.layerName};
     }
 
-    for (auto&& property : supported_layers_) {
-      std::print("Supported Instance Layer: {}\n", property.layerName);
-    }
-
-    for (auto&& property : supported_extensions_) {
-      std::print("Supported Instance Extension: {}\n", property.extensionName);
+    for (auto&& layer : supported_layers_()) {
+      std::print("Supported Instance Layer: {}\n", layer.layerName);
+      for (auto&& extension : supported_extensions_[layer.layerName]()) {
+        std::print("  Supported Instance Extension: {}\n",
+                   extension.extensionName);
+      }
     }
 
     application_info_().pApplicationName = name_.c_str();
@@ -989,8 +985,9 @@ class Application final {
     }
 
     if (debug_level != DebugLevel::NONE) {
-      if (vk::HasExtensionProperty(supported_extensions_,
-                                   impl::DEBUG_EXTENSION_NAME)) {
+      if (vk::HasExtensionProperty(
+              supported_extensions_[impl::VALIDATION_LAYER_NAME],
+              impl::DEBUG_EXTENSION_NAME)) {
         extensions.push_back(impl::DEBUG_EXTENSION_NAME);
       } else {
         std::cerr << "Missing debug extension: " << impl::DEBUG_EXTENSION_NAME;
@@ -1006,8 +1003,8 @@ class Application final {
  private:
   vk::ApplicationInfo application_info_;
 
-  std::vector<::VkLayerProperties> supported_layers_;
-  std::vector<::VkExtensionProperties> supported_extensions_;
+  vk::InstanceLayerProperties supported_layers_;
+  std::map<std::string, vk::InstanceExtensionProperties> supported_extensions_;
   std::string name_;
 };
 
