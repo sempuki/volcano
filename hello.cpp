@@ -78,8 +78,8 @@ int main() {
   auto command_pool = device.CreateCommandPool(queue.FamilyIndex());
   auto swapchain = device.CreateSwapchain(VK_FORMAT_B8G8R8A8_UNORM,
                                           VK_PRESENT_MODE_FIFO_KHR);
-  auto swapchain_image_views =
-      device.CreateImageViews(swapchain.Images(), VK_FORMAT_B8G8R8A8_UNORM);
+  // auto swapchain_image_views =
+  //     device.CreateImageViews(swapchain.Images(), VK_FORMAT_B8G8R8A8_UNORM);
 
   window->SetRenderer(device.CreateSurfaceRenderer());
   window->Show();
