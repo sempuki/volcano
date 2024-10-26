@@ -74,12 +74,7 @@ class Buffer final {
   DECLARE_MOVE_DEFAULT(Buffer);
 
   Buffer() = delete;
-  ~Buffer() {
-    if (buffer_ != VK_NULL_HANDLE) {
-      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyBuffer(device_, buffer_, vk::ALLOCATOR);
-    }
-  }
+  ~Buffer() = default;
 
  private:
   friend class Device;
@@ -92,16 +87,12 @@ class Buffer final {
     buffer_info_().usage = buffer_usage;
     buffer_info_().sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    ::VkResult result =
-        ::vkCreateBuffer(device_, buffer_info_.address(), vk::ALLOCATOR,
-                         std::addressof(buffer_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
-
+    buffer_ = vk::Buffer{device_, buffer_info_()};
     memory_requirements_ = vk::MemoryRequirements{device_, buffer_};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkBuffer buffer_ = VK_NULL_HANDLE;
+  vk::Buffer buffer_;
   vk::BufferCreateInfo buffer_info_;
   vk::MemoryRequirements memory_requirements_;
 };
@@ -113,12 +104,7 @@ class DeviceMemory final {
   DECLARE_MOVE_DEFAULT(DeviceMemory);
 
   DeviceMemory() = delete;
-  ~DeviceMemory() {
-    if (memory_ != VK_NULL_HANDLE) {
-      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkFreeMemory(device_, memory_, vk::ALLOCATOR);
-    }
-  }
+  ~DeviceMemory() = default;
 
   void CopyInitialize(std::span<const std::byte> data) {
     CHECK_PRECONDITION(data.size() <= memory_info_().allocationSize);
@@ -141,14 +127,10 @@ class DeviceMemory final {
       : device_{device} {
     memory_info_().allocationSize = required_byte_count;
     memory_info_().memoryTypeIndex = memory_type_index;
+    memory_ = vk::DeviceMemory{device_, memory_info_()};
 
-    ::VkResult result =
-        ::vkAllocateMemory(device_, memory_info_.address(), vk::ALLOCATOR,
-                           std::addressof(memory_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
-
-    result = ::vkBindBufferMemory(device_, target_buffer, memory_,
-                                  required_byte_offset);
+    ::VkResult result = ::vkBindBufferMemory(device_, target_buffer, memory_,
+                                             required_byte_offset);
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
     void* host_pointer = nullptr;
@@ -162,7 +144,7 @@ class DeviceMemory final {
 
   std::byte* host_bytes_ = nullptr;
   ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkDeviceMemory memory_ = VK_NULL_HANDLE;
+  vk::DeviceMemory memory_;
   vk::MemoryAllocateInfo memory_info_;
 };
 
@@ -173,12 +155,7 @@ class CommandPool final {
   DECLARE_MOVE_DEFAULT(CommandPool);
 
   CommandPool() = delete;
-  ~CommandPool() {
-    if (command_pool_ != VK_NULL_HANDLE) {
-      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyCommandPool(device_, command_pool_, vk::ALLOCATOR);
-    }
-  }
+  ~CommandPool() = default;
 
  private:
   friend class Device;
@@ -186,15 +163,11 @@ class CommandPool final {
   explicit CommandPool(::VkDevice device, std::uint32_t queue_family_index)
       : device_{device} {
     command_pool_info_().queueFamilyIndex = queue_family_index;
-
-    ::VkResult result =
-        ::vkCreateCommandPool(device_, command_pool_info_.address(),
-                              vk::ALLOCATOR, std::addressof(command_pool_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    command_pool_ = vk::CommandPool{device_, command_pool_info_()};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkCommandPool command_pool_ = VK_NULL_HANDLE;
+  vk::CommandPool command_pool_;
   vk::CommandPoolCreateInfo command_pool_info_;
 };
 
@@ -205,12 +178,7 @@ class ImageView final {
   DECLARE_MOVE_DEFAULT(ImageView);
 
   ImageView() = delete;
-  ~ImageView() {
-    if (image_view_ != VK_NULL_HANDLE) {
-      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyImageView(device_, image_view_, vk::ALLOCATOR);
-    }
-  }
+  ~ImageView() = default;
 
  private:
   friend class Device;
@@ -229,15 +197,11 @@ class ImageView final {
     image_view_info_().subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
     image_view_info_().subresourceRange.baseArrayLayer = 0;
     image_view_info_().subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-    ::VkResult result =
-        ::vkCreateImageView(device_, image_view_info_.address(), vk::ALLOCATOR,
-                            std::addressof(image_view_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    image_view_ = vk::ImageView{device_, image_view_info_()};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkImageView image_view_ = VK_NULL_HANDLE;
+  vk::ImageView image_view_;
   vk::ImageViewCreateInfo image_view_info_;
 };
 
@@ -248,12 +212,7 @@ class RenderPass final {
   DECLARE_MOVE_DEFAULT(RenderPass);
 
   RenderPass() = delete;
-  ~RenderPass() {
-    if (render_pass_ != VK_NULL_HANDLE) {
-      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyRenderPass(device_, render_pass_, vk::ALLOCATOR);
-    }
-  }
+  ~RenderPass() = default;
 
  private:
   friend class Device;
@@ -319,15 +278,11 @@ class RenderPass final {
     render_pass_info_().pSubpasses = subpass_description.data();
     render_pass_info_().dependencyCount = subpass_dependencies.size();
     render_pass_info_().pDependencies = subpass_dependencies.data();
-
-    ::VkResult result =
-        ::vkCreateRenderPass(device_, render_pass_info_.address(),
-                             vk::ALLOCATOR, std::addressof(render_pass_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    render_pass_ = vk::RenderPass{device_, render_pass_info_()};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkRenderPass render_pass_ = VK_NULL_HANDLE;
+  vk::RenderPass render_pass_;
   vk::RenderPassCreateInfo render_pass_info_;
 };
 
@@ -338,25 +293,17 @@ class PipelineLayout final {
   DECLARE_MOVE_DEFAULT(PipelineLayout);
 
   PipelineLayout() = delete;
-  ~PipelineLayout() {
-    if (pipeline_layout_ != VK_NULL_HANDLE) {
-      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyPipelineLayout(device_, pipeline_layout_, vk::ALLOCATOR);
-    }
-  }
+  ~PipelineLayout() = default;
 
  private:
   friend class Device;
 
   explicit PipelineLayout(::VkDevice device) : device_{device} {
-    ::VkResult result = ::vkCreatePipelineLayout(
-        device_, pipeline_layout_info_.address(), vk::ALLOCATOR,
-        std::addressof(pipeline_layout_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    pipeline_layout_ = vk::PipelineLayout{device_, pipeline_layout_info_()};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkPipelineLayout pipeline_layout_ = VK_NULL_HANDLE;
+  vk::PipelineLayout pipeline_layout_;
   vk::PipelineLayoutCreateInfo pipeline_layout_info_;
 };
 
@@ -367,12 +314,7 @@ class ShaderModule final {
   DECLARE_MOVE_DEFAULT(ShaderModule);
 
   ShaderModule() = delete;
-  ~ShaderModule() {
-    if (shader_module_ != VK_NULL_HANDLE) {
-      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyShaderModule(device_, shader_module_, vk::ALLOCATOR);
-    }
-  }
+  ~ShaderModule() = default;
 
  private:
   friend class Device;
@@ -383,15 +325,11 @@ class ShaderModule final {
     shader_module_info_().pCode = shader_spirv_bin.data();
     shader_module_info_().codeSize =  // Byte count.
         shader_spirv_bin.size() * sizeof(std::uint32_t);
-
-    ::VkResult result =
-        ::vkCreateShaderModule(device_, shader_module_info_.address(),
-                               vk::ALLOCATOR, std::addressof(shader_module_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    shader_module_ = vk::ShaderModule{device_, shader_module_info_()};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkShaderModule shader_module_ = VK_NULL_HANDLE;
+  vk::ShaderModule shader_module_;
   vk::ShaderModuleCreateInfo shader_module_info_;
 };
 
@@ -402,12 +340,7 @@ class Swapchain final {
   DECLARE_MOVE_DEFAULT(Swapchain);
 
   Swapchain() = delete;
-  ~Swapchain() {
-    if (swapchain_ != VK_NULL_HANDLE) {
-      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroySwapchainKHR(device_, swapchain_, vk::ALLOCATOR);
-    }
-  }
+  ~Swapchain() = default;
 
   std::span<::VkImage> Images() { return {swapchain_images_}; }
 
@@ -452,20 +385,14 @@ class Swapchain final {
     swapchain_info_().clipped = VK_TRUE;
     swapchain_info_().oldSwapchain = previous_swapchain;
 
-    ::VkResult result =
-        ::vkCreateSwapchainKHR(device_, swapchain_info_.address(),
-                               vk::ALLOCATOR, std::addressof(swapchain_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
-
-    vk::MaybeEnumerateProperties(
-        std::bind_front(::vkGetSwapchainImagesKHR, device_, swapchain_),
-        InOut(swapchain_images_));
+    swapchain_ = vk::Swapchain{device_, swapchain_info_()};
+    swapchain_images_ = vk::SwapchainImages{device_, swapchain_};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
+  vk::Swapchain swapchain_;
   std::vector<std::uint32_t> queue_families_;
-  std::vector<::VkImage> swapchain_images_;
+  vk::SwapchainImages swapchain_images_;
 
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   ::VkSurfaceCapabilitiesKHR surface_capabilities_;
@@ -480,11 +407,7 @@ class Device final {
   DECLARE_MOVE_DEFAULT(Device);
 
   Device() = delete;
-  ~Device() {
-    if (device_ != VK_NULL_HANDLE) {
-      ::vkDestroyDevice(device_, vk::ALLOCATOR);
-    }
-  }
+  ~Device() = default;
 
   Queue CreateQueue() {
     CHECK_PRECONDITION(queue_families_.size() == 1);
@@ -619,12 +542,9 @@ class Device final {
     device_info_().ppEnabledExtensionNames = device_extensions_.data();
     device_info_().pEnabledFeatures = std::addressof(phys_device_features_);
 
-    ::VkResult result =
-        ::vkCreateDevice(phys_device, device_info_.address(), vk::ALLOCATOR,
-                         std::addressof(device_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    device_ = vk::Device{phys_device, device_info_()};
 
-    result = ::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+    ::VkResult result = ::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
         phys_device, surface_, std::addressof(surface_capabilities_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
@@ -649,7 +569,7 @@ class Device final {
     }
   }
 
-  ::VkDevice device_ = VK_NULL_HANDLE;
+  vk::Device device_;
   vk::DeviceCreateInfo device_info_;
 
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
@@ -675,12 +595,11 @@ class Instance final {
   ~Instance() {
     if (instance_ && destroy_debug_messenger_ &&
         debug_messenger_ != VK_NULL_HANDLE) {
-      destroy_debug_messenger_(instance_.handle(), debug_messenger_,
-                               vk::ALLOCATOR);
+      destroy_debug_messenger_(instance_, debug_messenger_, vk::ALLOCATOR);
     }
   }
 
-  ::VkInstance Handle() const { return instance_.handle(); }
+  ::VkInstance Handle() const { return instance_; }
 
   Device CreateDevice(::VkSurfaceKHR surface) {
     CHECK_PRECONDITION(surface != VK_NULL_HANDLE);
@@ -762,23 +681,21 @@ class Instance final {
 
     if (debug_level != DebugLevel::NONE &&
         vk::HasStringName(instance_extensions_, impl::DEBUG_EXTENSION_NAME)) {
-      vk::LoadInstanceFunction(impl::DEBUG_CREATE_FUNCTION_NAME,
-                               instance_.handle(),
+      vk::LoadInstanceFunction(impl::DEBUG_CREATE_FUNCTION_NAME, instance_,
                                Out(create_debug_messenger_));
-      vk::LoadInstanceFunction(impl::DEBUG_DESTROY_FUNCTION_NAME,
-                               instance_.handle(),
+      vk::LoadInstanceFunction(impl::DEBUG_DESTROY_FUNCTION_NAME, instance_,
                                Out(destroy_debug_messenger_));
-      vk::LoadInstanceFunction(impl::DEBUG_SUBMIT_FUNCTION_NAME,
-                               instance_.handle(), Out(submit_debug_message_));
+      vk::LoadInstanceFunction(impl::DEBUG_SUBMIT_FUNCTION_NAME, instance_,
+                               Out(submit_debug_message_));
 
       ::VkResult result = create_debug_messenger_(
-          instance_.handle(), debug_messenger_info_.address(), vk::ALLOCATOR,
+          instance_, debug_messenger_info_.address(), vk::ALLOCATOR,
           std::addressof(debug_messenger_));
       CHECK_POSTCONDITION(result == VK_SUCCESS);
       CHECK_POSTCONDITION(debug_messenger_ != VK_NULL_HANDLE);
     }
 
-    phys_devices_ = vk::PhysicalDevices{instance_.handle()};
+    phys_devices_ = vk::PhysicalDevices{instance_};
 
     std::print("Physical Devices: \n");
     for (auto&& phys_device : phys_devices_()) {

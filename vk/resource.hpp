@@ -444,6 +444,7 @@ class HandleBase {
   }
 
   explicit operator bool() const { return handle_ != VK_NULL_HANDLE; }
+  operator HandleType() const { return handle_; }
 
   HandleType handle() const { return handle_; }
   const HandleCreateInfoType& create_info() const { return create_info_(); }
@@ -502,6 +503,7 @@ class ParentedHandleBase {
   explicit operator bool() const {
     return parent_ != VK_NULL_HANDLE && handle_ != VK_NULL_HANDLE;
   }
+  operator HandleType() const { return handle_; }
 
   ParentType parent() const { return parent_; }
   HandleType handle() const { return handle_; }
@@ -649,7 +651,7 @@ class Device final {
  public:
   DECLARE_COPY_DELETE(Device);
 
-  Device() = delete;
+  Device() = default;
   ~Device() {
     if (device_ != VK_NULL_HANDLE) {
       ::vkDestroyDevice(device_, ALLOCATOR);
@@ -687,6 +689,8 @@ class Device final {
     return phys_device_ != VK_NULL_HANDLE && device_ != VK_NULL_HANDLE;
   }
 
+  operator ::VkDevice() const { return device_; }
+
   ::VkDevice handle() const { return device_; }
   ::VkPhysicalDevice phys_device() const { return phys_device_; }
 
@@ -705,7 +709,7 @@ class Queue final {
   DECLARE_COPY_DELETE(Queue);
   DECLARE_MOVE_DEFAULT(Queue);
 
-  Queue() = delete;
+  Queue() = default;
   ~Queue() = default;
 
   explicit Queue(::VkDevice device,                 //
@@ -722,6 +726,8 @@ class Queue final {
   explicit operator bool() const {
     return device_ != VK_NULL_HANDLE && queue_ != VK_NULL_HANDLE;
   }
+
+  operator ::VkQueue() const { return queue_; }
 
   ::VkDevice device() const { return device_; }
   ::VkQueue handle() const { return queue_; }
