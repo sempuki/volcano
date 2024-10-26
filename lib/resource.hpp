@@ -10,6 +10,7 @@
 
 #include "lib/base.hpp"
 #include "lib/surface_render.hpp"
+#include "vk/resource.hpp"
 
 namespace volcano {
 namespace impl {
@@ -68,6 +69,11 @@ inline auto MakeShaderModuleCreateInfo() {
 inline auto MakeSwapchainCreateInfo() {
   return ::VkSwapchainCreateInfoKHR{
       .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR  //
+  };
+}
+inline auto MakeImageViewCreateInfo() {
+  return ::VkImageViewCreateInfo{
+      .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO  //
   };
 }
 inline auto MakeDebugMessengerCreateInfo() {
@@ -756,8 +762,6 @@ constexpr const char* DEBUG_DESTROY_FUNCTION_NAME =
 constexpr const char* DEBUG_SUBMIT_FUNCTION_NAME =
     "vkSubmitDebugUtilsMessageEXT";
 
-const ::VkAllocationCallbacks* ALLOCATOR = nullptr;
-
 }  // namespace impl
 
 enum class DebugLevel {
@@ -809,7 +813,7 @@ class Buffer final {
   ~Buffer() {
     if (buffer_ != VK_NULL_HANDLE) {
       CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyBuffer(device_, buffer_, impl::ALLOCATOR);
+      ::vkDestroyBuffer(device_, buffer_, vk::ALLOCATOR);
     }
   }
 
@@ -825,7 +829,7 @@ class Buffer final {
     buffer_info_.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
     ::VkResult result =
-        ::vkCreateBuffer(device_, std::addressof(buffer_info_), impl::ALLOCATOR,
+        ::vkCreateBuffer(device_, std::addressof(buffer_info_), vk::ALLOCATOR,
                          std::addressof(buffer_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
@@ -849,7 +853,7 @@ class DeviceMemory final {
   ~DeviceMemory() {
     if (memory_ != VK_NULL_HANDLE) {
       CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkFreeMemory(device_, memory_, impl::ALLOCATOR);
+      ::vkFreeMemory(device_, memory_, vk::ALLOCATOR);
     }
   }
 
@@ -876,8 +880,8 @@ class DeviceMemory final {
     memory_info_.memoryTypeIndex = memory_type_index;
 
     ::VkResult result =
-        ::vkAllocateMemory(device_, std::addressof(memory_info_),
-                           impl::ALLOCATOR, std::addressof(memory_));
+        ::vkAllocateMemory(device_, std::addressof(memory_info_), vk::ALLOCATOR,
+                           std::addressof(memory_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
     result = ::vkBindBufferMemory(device_, target_buffer, memory_,
@@ -909,7 +913,7 @@ class CommandPool final {
   ~CommandPool() {
     if (command_pool_ != VK_NULL_HANDLE) {
       CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyCommandPool(device_, command_pool_, impl::ALLOCATOR);
+      ::vkDestroyCommandPool(device_, command_pool_, vk::ALLOCATOR);
     }
   }
 
@@ -922,7 +926,7 @@ class CommandPool final {
 
     ::VkResult result =
         ::vkCreateCommandPool(device_, std::addressof(command_pool_info_),
-                              impl::ALLOCATOR, std::addressof(command_pool_));
+                              vk::ALLOCATOR, std::addressof(command_pool_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
@@ -930,6 +934,49 @@ class CommandPool final {
   ::VkCommandPool command_pool_ = VK_NULL_HANDLE;
   ::VkCommandPoolCreateInfo command_pool_info_ =
       impl::MakeCommandPoolCreateInfo();
+};
+
+//------------------------------------------------------------------------------
+class ImageView final {
+ public:
+  DECLARE_COPY_DELETE(ImageView);
+  DECLARE_MOVE_DEFAULT(ImageView);
+
+  ImageView() = delete;
+  ~ImageView() {
+    if (image_view_ != VK_NULL_HANDLE) {
+      CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
+      ::vkDestroyImageView(device_, image_view_, vk::ALLOCATOR);
+    }
+  }
+
+ private:
+  friend class Device;
+
+  explicit ImageView(::VkDevice device, ::VkImage image, ::VkFormat format)
+      : device_{device} {
+    image_view_info_.image = image;
+    image_view_info_.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    image_view_info_.format = format;
+    image_view_info_.components = {VK_COMPONENT_SWIZZLE_IDENTITY,  //
+                                   VK_COMPONENT_SWIZZLE_IDENTITY,  //
+                                   VK_COMPONENT_SWIZZLE_IDENTITY,  //
+                                   VK_COMPONENT_SWIZZLE_IDENTITY};
+    image_view_info_.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    image_view_info_.subresourceRange.baseMipLevel = 0;
+    image_view_info_.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+    image_view_info_.subresourceRange.baseArrayLayer = 0;
+    image_view_info_.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+    ::VkResult result =
+        ::vkCreateImageView(device_, std::addressof(image_view_info_),
+                            vk::ALLOCATOR, std::addressof(image_view_));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
+  ::VkDevice device_ = VK_NULL_HANDLE;
+  ::VkImageView image_view_ = VK_NULL_HANDLE;
+  ::VkImageViewCreateInfo image_view_info_ = impl::MakeImageViewCreateInfo();
 };
 
 //------------------------------------------------------------------------------
@@ -942,7 +989,7 @@ class RenderPass final {
   ~RenderPass() {
     if (render_pass_ != VK_NULL_HANDLE) {
       CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyRenderPass(device_, render_pass_, impl::ALLOCATOR);
+      ::vkDestroyRenderPass(device_, render_pass_, vk::ALLOCATOR);
     }
   }
 
@@ -1013,7 +1060,7 @@ class RenderPass final {
 
     ::VkResult result =
         ::vkCreateRenderPass(device_, std::addressof(render_pass_info_),
-                             impl::ALLOCATOR, std::addressof(render_pass_));
+                             vk::ALLOCATOR, std::addressof(render_pass_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
@@ -1032,7 +1079,7 @@ class PipelineLayout final {
   ~PipelineLayout() {
     if (pipeline_layout_ != VK_NULL_HANDLE) {
       CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyPipelineLayout(device_, pipeline_layout_, impl::ALLOCATOR);
+      ::vkDestroyPipelineLayout(device_, pipeline_layout_, vk::ALLOCATOR);
     }
   }
 
@@ -1041,7 +1088,7 @@ class PipelineLayout final {
 
   explicit PipelineLayout(::VkDevice device) : device_{device} {
     ::VkResult result = ::vkCreatePipelineLayout(
-        device_, std::addressof(pipeline_layout_info_), impl::ALLOCATOR,
+        device_, std::addressof(pipeline_layout_info_), vk::ALLOCATOR,
         std::addressof(pipeline_layout_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
@@ -1062,7 +1109,7 @@ class ShaderModule final {
   ~ShaderModule() {
     if (shader_module_ != VK_NULL_HANDLE) {
       CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroyShaderModule(device_, shader_module_, impl::ALLOCATOR);
+      ::vkDestroyShaderModule(device_, shader_module_, vk::ALLOCATOR);
     }
   }
 
@@ -1078,7 +1125,7 @@ class ShaderModule final {
 
     ::VkResult result =
         ::vkCreateShaderModule(device_, std::addressof(shader_module_info_),
-                               impl::ALLOCATOR, std::addressof(shader_module_));
+                               vk::ALLOCATOR, std::addressof(shader_module_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
@@ -1098,9 +1145,11 @@ class Swapchain final {
   ~Swapchain() {
     if (swapchain_ != VK_NULL_HANDLE) {
       CHECK_INVARIANT(device_ != VK_NULL_HANDLE);
-      ::vkDestroySwapchainKHR(device_, swapchain_, impl::ALLOCATOR);
+      ::vkDestroySwapchainKHR(device_, swapchain_, vk::ALLOCATOR);
     }
   }
+
+  std::span<::VkImage> Images() { return {swapchain_images_}; }
 
  private:
   friend class Device;
@@ -1109,8 +1158,8 @@ class Swapchain final {
                      std::vector<std::uint32_t> queue_families,               //
                      ::VkSurfaceKHR surface,                                  //
                      const ::VkSurfaceCapabilitiesKHR& surface_capabilities,  //
-                     const ::VkSurfaceFormatKHR& surface_format,
-                     ::VkPresentModeKHR surface_present_mode,
+                     const ::VkSurfaceFormatKHR& surface_format,              //
+                     ::VkPresentModeKHR surface_present_mode,                 //
                      ::VkSwapchainKHR previous_swapchain)
       : device_{device},
         queue_families_{std::move(queue_families)},
@@ -1145,13 +1194,18 @@ class Swapchain final {
 
     ::VkResult result =
         ::vkCreateSwapchainKHR(device_, std::addressof(swapchain_info_),
-                               impl::ALLOCATOR, std::addressof(swapchain_));
+                               vk::ALLOCATOR, std::addressof(swapchain_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
+
+    impl::MaybeEnumerateProperties(
+        std::bind_front(::vkGetSwapchainImagesKHR, device_, swapchain_),
+        InOut(swapchain_images_));
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
   ::VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
   std::vector<std::uint32_t> queue_families_;
+  std::vector<::VkImage> swapchain_images_;
 
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   ::VkSurfaceCapabilitiesKHR surface_capabilities_;
@@ -1168,7 +1222,7 @@ class Device final {
   Device() = delete;
   ~Device() {
     if (device_ != VK_NULL_HANDLE) {
-      ::vkDestroyDevice(device_, impl::ALLOCATOR);
+      ::vkDestroyDevice(device_, vk::ALLOCATOR);
     }
   }
 
@@ -1263,6 +1317,15 @@ class Device final {
                      previous_swapchain};
   }
 
+  std::vector<ImageView> CreateImageViews(std::span<::VkImage> images,
+                                          ::VkFormat format) {
+    std::vector<ImageView> result;
+    for (auto&& image : images) {
+      result.push_back(ImageView{device_, image, format});
+    }
+    return result;
+  }
+
  private:
   friend class Instance;
 
@@ -1295,7 +1358,7 @@ class Device final {
 
     ::VkResult result =
         ::vkCreateDevice(phys_device, std::addressof(device_info_),
-                         impl::ALLOCATOR, std::addressof(device_));
+                         vk::ALLOCATOR, std::addressof(device_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
     result = ::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
@@ -1349,9 +1412,9 @@ class Instance final {
   ~Instance() {
     if (instance_ != VK_NULL_HANDLE) {
       if (destroy_debug_messenger_ && debug_messenger_ != VK_NULL_HANDLE) {
-        destroy_debug_messenger_(instance_, debug_messenger_, impl::ALLOCATOR);
+        destroy_debug_messenger_(instance_, debug_messenger_, vk::ALLOCATOR);
       }
-      ::vkDestroyInstance(instance_, impl::ALLOCATOR);
+      ::vkDestroyInstance(instance_, vk::ALLOCATOR);
     }
   }
 
@@ -1434,7 +1497,7 @@ class Instance final {
     }
 
     ::VkResult result =
-        ::vkCreateInstance(std::addressof(instance_info_), impl::ALLOCATOR,
+        ::vkCreateInstance(std::addressof(instance_info_), vk::ALLOCATOR,
                            std::addressof(instance_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
@@ -1448,7 +1511,7 @@ class Instance final {
                                  Out(submit_debug_message_));
 
       ::VkResult result = create_debug_messenger_(
-          instance_, std::addressof(debug_messenger_info_), impl::ALLOCATOR,
+          instance_, std::addressof(debug_messenger_info_), vk::ALLOCATOR,
           std::addressof(debug_messenger_));
       CHECK_POSTCONDITION(result == VK_SUCCESS);
       CHECK_POSTCONDITION(debug_messenger_ != VK_NULL_HANDLE);

@@ -34,6 +34,20 @@ static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
   class_name__(class_name__&&) = delete;  \
   class_name__& operator=(class_name__&&) = delete;
 
+#define DEFINE_MOVE_FROM_SWAP(class_name__)               \
+  class_name__(class_name__&& that) noexcept {            \
+    using std::swap;                                      \
+    swap(*this, that);                                    \
+  }                                                       \
+  class_name__& operator=(class_name__&& that) noexcept { \
+    if (this != &that) {                                  \
+      using std::swap;                                    \
+      class_name__ temp{std::move(that)};                 \
+      swap(*this, temp);                                  \
+    }                                                     \
+    return *this;                                         \
+  }
+
 #define DECLARE_USED(expression__) ((void)(sizeof(expression__)))
 #define DECLARE_UNUSED(expression__) ((void)(sizeof(expression__)))
 

@@ -87,6 +87,7 @@ cc_library(
     deps = [
         ":base",
         ":surface_render",
+        "//vk:resource",
     ],
 )
 
