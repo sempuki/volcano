@@ -673,15 +673,14 @@ class Instance final {
 
   Instance() = delete;
   ~Instance() {
-    if (instance_ != VK_NULL_HANDLE) {
-      if (destroy_debug_messenger_ && debug_messenger_ != VK_NULL_HANDLE) {
-        destroy_debug_messenger_(instance_, debug_messenger_, vk::ALLOCATOR);
-      }
-      ::vkDestroyInstance(instance_, vk::ALLOCATOR);
+    if (instance_ && destroy_debug_messenger_ &&
+        debug_messenger_ != VK_NULL_HANDLE) {
+      destroy_debug_messenger_(instance_.handle(), debug_messenger_,
+                               vk::ALLOCATOR);
     }
   }
 
-  ::VkInstance Handle() const { return instance_; }
+  ::VkInstance Handle() const { return instance_.handle(); }
 
   Device CreateDevice(::VkSurfaceKHR surface) {
     CHECK_PRECONDITION(surface != VK_NULL_HANDLE);
@@ -759,32 +758,30 @@ class Instance final {
       std::print(" -- {}\n", extension);
     }
 
-    ::VkResult result = ::vkCreateInstance(
-        instance_info_.address(), vk::ALLOCATOR, std::addressof(instance_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    instance_ = vk::Instance{instance_info_()};
 
     if (debug_level != DebugLevel::NONE &&
         vk::HasStringName(instance_extensions_, impl::DEBUG_EXTENSION_NAME)) {
-      vk::LoadInstanceFunction(impl::DEBUG_CREATE_FUNCTION_NAME, instance_,
+      vk::LoadInstanceFunction(impl::DEBUG_CREATE_FUNCTION_NAME,
+                               instance_.handle(),
                                Out(create_debug_messenger_));
-      vk::LoadInstanceFunction(impl::DEBUG_DESTROY_FUNCTION_NAME, instance_,
+      vk::LoadInstanceFunction(impl::DEBUG_DESTROY_FUNCTION_NAME,
+                               instance_.handle(),
                                Out(destroy_debug_messenger_));
-      vk::LoadInstanceFunction(impl::DEBUG_SUBMIT_FUNCTION_NAME, instance_,
-                               Out(submit_debug_message_));
+      vk::LoadInstanceFunction(impl::DEBUG_SUBMIT_FUNCTION_NAME,
+                               instance_.handle(), Out(submit_debug_message_));
 
       ::VkResult result = create_debug_messenger_(
-          instance_, debug_messenger_info_.address(), vk::ALLOCATOR,
+          instance_.handle(), debug_messenger_info_.address(), vk::ALLOCATOR,
           std::addressof(debug_messenger_));
       CHECK_POSTCONDITION(result == VK_SUCCESS);
       CHECK_POSTCONDITION(debug_messenger_ != VK_NULL_HANDLE);
     }
 
-    vk::MaybeEnumerateProperties(
-        std::bind_front(::vkEnumeratePhysicalDevices, instance_),
-        InOut(phys_devices_));
+    phys_devices_ = vk::PhysicalDevices{instance_.handle()};
 
     std::print("Physical Devices: \n");
-    for (auto&& phys_device : phys_devices_) {
+    for (auto&& phys_device : phys_devices_()) {
       ::vkGetPhysicalDeviceProperties(
           phys_device, std::addressof(phys_device_properties_[phys_device]));
       std::print(
@@ -837,7 +834,7 @@ class Instance final {
       PredicateType&& predicate) {
     std::vector<FindQueueFamilyResult> result;
 
-    for (auto&& phys_device : phys_devices_) {
+    for (auto&& phys_device : phys_devices_()) {
       auto&& phys_device_property = phys_device_properties_[phys_device];
       auto&& queue_family_properties =
           phys_device_queue_family_properties_[phys_device];
@@ -868,7 +865,7 @@ class Instance final {
     return device_memory_property_index;
   }
 
-  ::VkInstance instance_ = VK_NULL_HANDLE;
+  vk::Instance instance_;
   ::VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
 
   ::PFN_vkSubmitDebugUtilsMessageEXT submit_debug_message_ = nullptr;
@@ -880,7 +877,9 @@ class Instance final {
 
   std::vector<const char*> instance_layers_;
   std::vector<const char*> instance_extensions_;
-  std::vector<::VkPhysicalDevice> phys_devices_;
+
+  vk::PhysicalDevices phys_devices_;
+
   std::map<::VkPhysicalDevice, ::VkPhysicalDeviceProperties>
       phys_device_properties_;
   std::map<::VkPhysicalDevice, ::VkPhysicalDeviceMemoryProperties>
@@ -970,6 +969,7 @@ class Application final {
 
     application_info_().pApplicationName = name_.c_str();
     application_info_().applicationVersion = version;
+    application_info_().apiVersion = VK_API_VERSION_1_3;
   }
 
   Instance CreateInstance(std::span<const char*> requested_layers = {},
@@ -1002,7 +1002,6 @@ class Application final {
 
  private:
   vk::ApplicationInfo application_info_;
-
   vk::InstanceLayerProperties supported_layers_;
   std::map<std::string, vk::InstanceExtensionProperties> supported_extensions_;
   std::string name_;
