@@ -125,9 +125,199 @@ class SwapchainCreateInfo final           //
           VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR> {};
 
 //------------------------------------------------------------------------------
+
+template <typename EnumeratorType, typename PropertyType>
+inline void MaybeEnumerateProperties(
+    EnumeratorType&& enumerate, InOut<std::vector<PropertyType>> properties) {
+  std::uint32_t count = 0;
+  std::vector<PropertyType> current;
+
+  // Gather the required array size.
+  InvokeWithContinuation(
+      Overloaded(
+          [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
+          []() {}),
+      enumerate, std::addressof(count), nullptr);
+  current.resize(count);
+
+  // Gather the enumerated properties.
+  if (count) {
+    InvokeWithContinuation(
+        Overloaded(
+            [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
+            []() {}),
+        enumerate, std::addressof(count), current.data());
+
+    properties->insert(properties->end(),  //
+                       current.begin(),    //
+                       current.end());
+  }
+}
+
+template <typename EnumeratedType>
+class EnumeratedBase {
+ public:
+  DECLARE_COPY_DELETE(EnumeratedBase);
+  DECLARE_MOVE_DEFAULT(EnumeratedBase);
+
+  EnumeratedBase() = default;
+  ~EnumeratedBase() = default;
+
+  std::span<EnumeratedType> operator()() { return {enumerated_}; }
+  std::span<const EnumeratedType> operator()() const { return {enumerated_}; }
+
+ protected:
+  std::vector<EnumeratedType> enumerated_;
+};
+
+template <typename EnumeratedType,  //
+          auto Enumerate0>
+class Enumerator0Base : public EnumeratedBase<EnumeratedType> {
+ public:
+  Enumerator0Base() {
+    MaybeEnumerateProperties(  //
+        Enumerate0, InOut(this->enumerated_));
+  }
+};
+
+template <typename Parameter1Type,  //
+          typename EnumeratedType,  //
+          auto Enumerate1>
+class Enumerator1Base : public EnumeratedBase<EnumeratedType> {
+ public:
+  explicit Enumerator1Base(Parameter1Type param1) : param1_{param1} {
+    MaybeEnumerateProperties(  //
+        std::bind_front(Enumerate1, param1_), InOut(this->enumerated_));
+  }
+
+ private:
+  Parameter1Type param1_;
+};
+
+template <typename Parameter1Type,  //
+          typename Parameter2Type,  //
+          typename EnumeratedType,  //
+          auto Enumerate2>
+class Enumerator2Base : public EnumeratedBase<EnumeratedType> {
+ public:
+  explicit Enumerator2Base(Parameter1Type param1, Parameter2Type param2)
+      : param1_{param1}, param2_{param2} {
+    MaybeEnumerateProperties(  //
+        std::bind_front(Enumerate2, param1_, param2_),
+        InOut(this->enumerated_));
+  }
+
+ private:
+  Parameter1Type param1_;
+  Parameter2Type param2_;
+};
+
+//------------------------------------------------------------------------------
+
+using LayerName = const char*;
+
+using InstanceLayerPropertiesBase =  //
+    Enumerator0Base<                 //
+        ::VkLayerProperties,         //
+        ::vkEnumerateInstanceLayerProperties>;
+
+using InstanceExtensionPropertiesBase =  //
+    Enumerator1Base<                     //
+        LayerName,                       //
+        ::VkExtensionProperties,         //
+        ::vkEnumerateInstanceExtensionProperties>;
+
+using PhysicalDevicesBase =  //
+    Enumerator1Base<         //
+        ::VkInstance,        //
+        ::VkPhysicalDevice,  //
+        ::vkEnumeratePhysicalDevices>;
+
+using DeviceExtensionPropertiesBase =  //
+    Enumerator2Base<                   //
+        ::VkPhysicalDevice,            //
+        LayerName,                     //
+        ::VkExtensionProperties,       //
+        ::vkEnumerateDeviceExtensionProperties>;
+
+using PhysicalDeviceQueueFamilyPropertiesBase =  //
+    Enumerator1Base<                             //
+        ::VkPhysicalDevice,                      //
+        ::VkQueueFamilyProperties,               //
+        ::vkGetPhysicalDeviceQueueFamilyProperties>;
+
+using PhysicalDeviceSurfaceFormatsBase =  //
+    Enumerator2Base<                      //
+        ::VkPhysicalDevice,               //
+        ::VkSurfaceKHR,                   //
+        ::VkSurfaceFormatKHR,             //
+        ::vkGetPhysicalDeviceSurfaceFormatsKHR>;
+
+using PhysicalDeviceSurfacePresentModesBase =  //
+    Enumerator2Base<                           //
+        ::VkPhysicalDevice,                    //
+        ::VkSurfaceKHR,                        //
+        ::VkPresentModeKHR,                    //
+        ::vkGetPhysicalDeviceSurfacePresentModesKHR>;
+
+using SwapchainImagesBase =  //
+    Enumerator2Base<         //
+        ::VkDevice,          //
+        ::VkSwapchainKHR,    //
+        ::VkImage,           //
+        ::vkGetSwapchainImagesKHR>;
+
+//------------------------------------------------------------------------------
+
+class InstanceLayerProperties final : public InstanceLayerPropertiesBase {
+ public:
+  using InstanceLayerPropertiesBase::InstanceLayerPropertiesBase;
+};
+
+class InstanceExtensionProperties final
+    : public InstanceExtensionPropertiesBase {
+ public:
+  using InstanceExtensionPropertiesBase::InstanceExtensionPropertiesBase;
+};
+
+class PhysicalDevices final : public PhysicalDevicesBase {
+ public:
+  using PhysicalDevicesBase::PhysicalDevicesBase;
+};
+
+class DeviceExtensionProperties final : public DeviceExtensionPropertiesBase {
+ public:
+  using DeviceExtensionPropertiesBase::DeviceExtensionPropertiesBase;
+};
+
+class PhysicalDeviceSurfaceFormats final
+    : public PhysicalDeviceSurfaceFormatsBase {
+ public:
+  using PhysicalDeviceSurfaceFormatsBase::PhysicalDeviceSurfaceFormatsBase;
+};
+
+class PhysicalDeviceQueueFamilyProperties final
+    : public PhysicalDeviceQueueFamilyPropertiesBase {
+ public:
+  using PhysicalDeviceQueueFamilyPropertiesBase::
+      PhysicalDeviceQueueFamilyPropertiesBase;
+};
+
+class PhysicalDevicePresentModes final
+    : public PhysicalDeviceSurfacePresentModesBase {
+ public:
+  using PhysicalDeviceSurfacePresentModesBase::
+      PhysicalDeviceSurfacePresentModesBase;
+};
+
+class SwapchainImages final : public SwapchainImagesBase {
+ public:
+  using SwapchainImagesBase::SwapchainImagesBase;
+};
+
+//------------------------------------------------------------------------------
 // NOTE: Extra information (such as the create info, or the source device) is
-// retained (eg. on the heap, to avoid copies) for checking and debugging
-// purposes.
+// retained (eg. on the heap, to avoid copies) for checking and debugging.
 
 //------------------------------------------------------------------------------
 
@@ -222,7 +412,7 @@ class ParentedHandleBase {
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
-  ::VkDevice parent() { return parent_; }
+  ParentType parent() { return parent_; }
   HandleType handle() { return handle_; }
 
   const HandleCreateInfoType& create_info() const { return create_info_(); }
@@ -445,194 +635,6 @@ class Queue final {
 
   std::uint32_t queue_family_index_ = std::numeric_limits<std::uint32_t>::max();
   std::uint32_t queue_index_ = std::numeric_limits<std::uint32_t>::max();
-};
-
-//------------------------------------------------------------------------------
-
-template <typename EnumeratorType, typename PropertyType>
-inline void MaybeEnumerateProperties(
-    EnumeratorType&& enumerate, InOut<std::vector<PropertyType>> properties) {
-  std::uint32_t count = 0;
-  std::vector<PropertyType> current;
-
-  // Gather the required array size.
-  InvokeWithContinuation(
-      Overloaded(
-          [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
-          []() {}),
-      enumerate, std::addressof(count), nullptr);
-  current.resize(count);
-
-  // Gather the enumerated properties.
-  if (count) {
-    InvokeWithContinuation(
-        Overloaded(
-            [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
-            []() {}),
-        enumerate, std::addressof(count), current.data());
-
-    properties->insert(properties->end(),  //
-                       current.begin(),    //
-                       current.end());
-  }
-}
-
-template <typename EnumeratedType>
-class EnumeratedBase {
- public:
-  DECLARE_COPY_DELETE(EnumeratedBase);
-  DECLARE_MOVE_DEFAULT(EnumeratedBase);
-
-  ~EnumeratedBase() = default;
-
-  std::span<EnumeratedType> operator()() { return {enumerated_}; }
-  std::span<const EnumeratedType> operator()() const { return {enumerated_}; }
-
- protected:
-  std::vector<EnumeratedType> enumerated_;
-};
-
-template <typename EnumeratedType,  //
-          auto Enumerate0>
-class Enumerator0Base : public EnumeratedBase<EnumeratedType> {
- public:
-  Enumerator0Base() {
-    MaybeEnumerateProperties(  //
-        Enumerate0, InOut(this->enumerated_));
-  }
-};
-
-template <typename Parameter1Type,  //
-          typename EnumeratedType,  //
-          auto Enumerate1>
-class Enumerator1Base : public EnumeratedBase<EnumeratedType> {
- public:
-  explicit Enumerator1Base(Parameter1Type param1) : param1_{param1} {
-    MaybeEnumerateProperties(  //
-        std::bind_front(Enumerate1, param1_), InOut(this->enumerated_));
-  }
-
- private:
-  Parameter1Type param1_;
-};
-
-template <typename Parameter1Type,  //
-          typename Parameter2Type,  //
-          typename EnumeratedType,  //
-          auto Enumerate2>
-class Enumerator2Base : public EnumeratedBase<EnumeratedType> {
- public:
-  explicit Enumerator2Base(Parameter1Type param1, Parameter2Type param2)
-      : param1_{param1}, param2_{param2} {
-    MaybeEnumerateProperties(  //
-        std::bind_front(Enumerate2, param1_, param2_),
-        InOut(this->enumerated_));
-  }
-
- private:
-  Parameter1Type param1_;
-  Parameter2Type param2_;
-};
-
-//------------------------------------------------------------------------------
-
-using InstanceLayerPropertiesBase =  //
-    Enumerator0Base<                 //
-        ::VkLayerProperties,         //
-        ::vkEnumerateInstanceLayerProperties>;
-
-using InstanceExtensionPropertiesBase =  //
-    Enumerator1Base<                     //
-        const char*,                     // Layer name.
-        ::VkExtensionProperties,         //
-        ::vkEnumerateInstanceExtensionProperties>;
-
-using PhysicalDevicesBase =  //
-    Enumerator1Base<         //
-        ::VkInstance,        //
-        ::VkPhysicalDevice,  //
-        ::vkEnumeratePhysicalDevices>;
-
-using DeviceExtensionPropertiesBase =  //
-    Enumerator2Base<                   //
-        ::VkPhysicalDevice,            //
-        const char*,                   // Layer name.
-        ::VkExtensionProperties,       //
-        ::vkEnumerateDeviceExtensionProperties>;
-
-using PhysicalDeviceQueueFamilyPropertiesBase =  //
-    Enumerator1Base<                             //
-        ::VkPhysicalDevice,                      //
-        ::VkQueueFamilyProperties,               //
-        ::vkGetPhysicalDeviceQueueFamilyProperties>;
-
-using PhysicalDeviceSurfaceFormatsBase =  //
-    Enumerator2Base<                      //
-        ::VkPhysicalDevice,               //
-        ::VkSurfaceKHR,                   //
-        ::VkSurfaceFormatKHR,             //
-        ::vkGetPhysicalDeviceSurfaceFormatsKHR>;
-
-using PhysicalDeviceSurfacePresentModesBase =  //
-    Enumerator2Base<                           //
-        ::VkPhysicalDevice,                    //
-        ::VkSurfaceKHR,                        //
-        ::VkPresentModeKHR,                    //
-        ::vkGetPhysicalDeviceSurfacePresentModesKHR>;
-
-using SwapchainImagesBase =  //
-    Enumerator2Base<         //
-        ::VkDevice,          //
-        ::VkSwapchainKHR,    //
-        ::VkImage,           //
-        ::vkGetSwapchainImagesKHR>;
-
-//------------------------------------------------------------------------------
-
-class InstanceLayerProperties final : public InstanceLayerPropertiesBase {
- public:
-  using InstanceLayerPropertiesBase::InstanceLayerPropertiesBase;
-};
-
-class InstanceExtensionProperties final
-    : public InstanceExtensionPropertiesBase {
- public:
-  using InstanceExtensionPropertiesBase::InstanceExtensionPropertiesBase;
-};
-
-class PhysicalDevices final : public PhysicalDevicesBase {
- public:
-  using PhysicalDevicesBase::PhysicalDevicesBase;
-};
-
-class DeviceExtensionProperties final : public DeviceExtensionPropertiesBase {
- public:
-  using DeviceExtensionPropertiesBase::DeviceExtensionPropertiesBase;
-};
-
-class PhysicalDeviceSurfaceFormats final
-    : public PhysicalDeviceSurfaceFormatsBase {
- public:
-  using PhysicalDeviceSurfaceFormatsBase::PhysicalDeviceSurfaceFormatsBase;
-};
-
-class PhysicalDeviceQueueFamilyProperties final
-    : public PhysicalDeviceQueueFamilyPropertiesBase {
- public:
-  using PhysicalDeviceQueueFamilyPropertiesBase::
-      PhysicalDeviceQueueFamilyPropertiesBase;
-};
-
-class PhysicalDevicePresentModes final
-    : public PhysicalDeviceSurfacePresentModesBase {
- public:
-  using PhysicalDeviceSurfacePresentModesBase::
-      PhysicalDeviceSurfacePresentModesBase;
-};
-
-class SwapchainImages final : public SwapchainImagesBase {
- public:
-  using SwapchainImagesBase::SwapchainImagesBase;
 };
 
 //------------------------------------------------------------------------------
