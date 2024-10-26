@@ -8,7 +8,7 @@
 
 namespace volcano::vk {
 
-const ::VkAllocationCallbacks* ALLOCATOR = nullptr;
+inline const ::VkAllocationCallbacks* ALLOCATOR = nullptr;
 
 //------------------------------------------------------------------------------
 
@@ -22,19 +22,20 @@ class MoveOnlyAdapterBase {
   MoveOnlyAdapterBase() = default;
   ~MoveOnlyAdapterBase() = default;
 
-  MoveOnlyAdapterBase(const VkType& that) : _{std::make_unique<VkType>(that)} {}
+  MoveOnlyAdapterBase(const VkType& that)
+      : vk_object_{std::make_unique<VkType>(that)} {}
 
-  operator VkType&() { return *_; };
-  operator const VkType&() { return *_; };
+  operator VkType&() { return *vk_object_; };
+  operator const VkType&() { return *vk_object_; };
 
-  VkType& operator()() noexcept { return *_; };
-  const VkType& operator()() const noexcept { return *_; };
+  VkType& operator()() noexcept { return *vk_object_; };
+  const VkType& operator()() const noexcept { return *vk_object_; };
 
-  VkType* address() noexcept { return _.get(); }
-  const VkType* address() const noexcept { return _.get(); }
+  VkType* address() noexcept { return vk_object_.get(); }
+  const VkType* address() const noexcept { return vk_object_.get(); }
 
  private:
-  std::unique_ptr<VkType> _ = std::make_unique<VkType>();
+  std::unique_ptr<VkType> vk_object_ = std::make_unique<VkType>();
 };
 
 template <typename VkType, ::VkStructureType TypeValue>
