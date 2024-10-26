@@ -415,7 +415,7 @@ class HandleBase {
  public:
   DECLARE_COPY_DELETE(HandleBase);
 
-  HandleBase() = delete;
+  HandleBase() = default;
   ~HandleBase() {
     if (handle_ != VK_NULL_HANDLE) {
       DestroyHandle(handle_, ALLOCATOR);
@@ -443,7 +443,9 @@ class HandleBase {
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
-  HandleType handle() { return handle_; }
+  explicit operator bool() const { return handle_ != VK_NULL_HANDLE; }
+
+  HandleType handle() const { return handle_; }
   const HandleCreateInfoType& create_info() const { return create_info_(); }
 
  private:
@@ -463,7 +465,7 @@ class ParentedHandleBase {
  public:
   DECLARE_COPY_DELETE(ParentedHandleBase);
 
-  ParentedHandleBase() = delete;
+  ParentedHandleBase() = default;
   ~ParentedHandleBase() {
     if (handle_ != VK_NULL_HANDLE) {
       CHECK_INVARIANT(parent_ != VK_NULL_HANDLE);
@@ -497,8 +499,12 @@ class ParentedHandleBase {
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
-  ParentType parent() { return parent_; }
-  HandleType handle() { return handle_; }
+  explicit operator bool() const {
+    return parent_ != VK_NULL_HANDLE && handle_ != VK_NULL_HANDLE;
+  }
+
+  ParentType parent() const { return parent_; }
+  HandleType handle() const { return handle_; }
 
   const HandleCreateInfoType& create_info() const { return create_info_(); }
 
@@ -677,8 +683,13 @@ class Device final {
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
-  ::VkDevice handle() { return device_; }
-  ::VkPhysicalDevice phys_device() { return phys_device_; }
+  explicit operator bool() const {
+    return phys_device_ != VK_NULL_HANDLE && device_ != VK_NULL_HANDLE;
+  }
+
+  ::VkDevice handle() const { return device_; }
+  ::VkPhysicalDevice phys_device() const { return phys_device_; }
+
   const ::VkDeviceCreateInfo& create_info() const { return create_info_(); }
 
  private:
@@ -708,8 +719,12 @@ class Queue final {
                        std::addressof(queue_));
   }
 
-  ::VkDevice device() { return device_; }
-  ::VkQueue handle() { return queue_; }
+  explicit operator bool() const {
+    return device_ != VK_NULL_HANDLE && queue_ != VK_NULL_HANDLE;
+  }
+
+  ::VkDevice device() const { return device_; }
+  ::VkQueue handle() const { return queue_; }
 
   std::uint32_t family_index() const { return queue_family_index_; }
   std::uint32_t index() const { return queue_index_; }
