@@ -8,6 +8,11 @@
 
 namespace volcano::vk {
 
+//------------------------------------------------------------------------------
+// NOTE: Copies of data used to create objects is retained for checking and
+// debugging purposes. This metadata is kept on the heap in move-only form to
+// avoid copies and maintain stable addresses.
+
 inline const ::VkAllocationCallbacks* ALLOCATOR = nullptr;
 
 //------------------------------------------------------------------------------
@@ -52,11 +57,6 @@ class TypeValueAdapterBase : public MoveOnlyAdapterBase<VkType> {
   }
 };
 }  // namespace impl
-
-//------------------------------------------------------------------------------
-
-class MemoryRequirements final
-    : public impl::MoveOnlyAdapterBase<::VkMemoryRequirements> {};
 
 //------------------------------------------------------------------------------
 
@@ -127,6 +127,85 @@ class SwapchainCreateInfo final           //
 
 //------------------------------------------------------------------------------
 
+template <typename PropertyType>
+class QueriedPropertyBase {
+ public:
+  DECLARE_COPY_DELETE(QueriedPropertyBase);
+  DECLARE_MOVE_DEFAULT(QueriedPropertyBase);
+
+  QueriedPropertyBase() = default;
+  ~QueriedPropertyBase() = default;
+
+  operator PropertyType&() { return property_; }
+  operator const PropertyType&() const { return property_; }
+
+  PropertyType& operator()() { return property_; }
+  const PropertyType& operator()() const { return property_; }
+
+ protected:
+  PropertyType property_;
+};
+
+template <typename PropertyType,  //
+          auto Query0>
+class PropertyQuerier0Base : public QueriedPropertyBase<PropertyType> {
+ public:
+  PropertyQuerier0Base() { Query0(std::addressof(this->property_)); }
+};
+
+template <typename Parameter1Type,  //
+          typename PropertyType,    //
+          auto Query1>
+class PropertyQuerier1Base : public QueriedPropertyBase<PropertyType> {
+ public:
+  PropertyQuerier1Base() = default;
+
+  explicit PropertyQuerier1Base(Parameter1Type param1)
+      : param1_{std::move(param1)} {
+    Query1(param1_, std::addressof(this->property_));
+  }
+
+ private:
+  Parameter1Type param1_;
+};
+
+template <typename Parameter1Type,  //
+          typename Parameter2Type,  //
+          typename PropertyType,    //
+          auto Query2>
+class PropertyQuerier2Base : public QueriedPropertyBase<PropertyType> {
+ public:
+  PropertyQuerier2Base() = default;
+
+  explicit PropertyQuerier2Base(Parameter1Type param1, Parameter2Type param2)
+      : param1_{std::move(param1)},  //
+        param2_{std::move(param2)} {
+    Query2(param1_, param2_, std::addressof(this->property_));
+  }
+
+ private:
+  Parameter1Type param1_;
+  Parameter2Type param2_;
+};
+
+//------------------------------------------------------------------------------
+
+using MemoryRequirementsBase =   //
+    PropertyQuerier2Base<        //
+        ::VkDevice,              //
+        ::VkBuffer,              //
+        ::VkMemoryRequirements,  //
+        ::vkGetBufferMemoryRequirements>;
+
+//------------------------------------------------------------------------------
+
+class MemoryRequirements final : public MemoryRequirementsBase {
+ public:
+  using MemoryRequirementsBase::MemoryRequirementsBase;
+};
+
+//------------------------------------------------------------------------------
+
 template <typename EnumeratorType, typename PropertyType>
 inline void MaybeEnumerateProperties(
     EnumeratorType&& enumerate, InOut<std::vector<PropertyType>> properties) {
@@ -155,38 +234,44 @@ inline void MaybeEnumerateProperties(
   }
 }
 
-template <typename EnumeratedType>
-class EnumeratedBase {
+template <typename PropertyType>
+class EnumeratedPropertyBase {
  public:
-  DECLARE_COPY_DELETE(EnumeratedBase);
-  DECLARE_MOVE_DEFAULT(EnumeratedBase);
+  DECLARE_COPY_DELETE(EnumeratedPropertyBase);
+  DECLARE_MOVE_DEFAULT(EnumeratedPropertyBase);
 
-  EnumeratedBase() = default;
-  ~EnumeratedBase() = default;
+  EnumeratedPropertyBase() = default;
+  ~EnumeratedPropertyBase() = default;
 
-  std::span<EnumeratedType> operator()() { return {enumerated_}; }
-  std::span<const EnumeratedType> operator()() const { return {enumerated_}; }
+  operator std::span<PropertyType>() { return {enumerated_}; }
+  operator std::span<const PropertyType>() const { return {enumerated_}; }
+
+  std::span<PropertyType> operator()() { return {enumerated_}; }
+  std::span<const PropertyType> operator()() const { return {enumerated_}; }
 
  protected:
-  std::vector<EnumeratedType> enumerated_;
+  std::vector<PropertyType> enumerated_;
 };
 
-template <typename EnumeratedType,  //
+template <typename PropertyType,  //
           auto Enumerate0>
-class Enumerator0Base : public EnumeratedBase<EnumeratedType> {
+class PropertyEnumerator0Base : public EnumeratedPropertyBase<PropertyType> {
  public:
-  Enumerator0Base() {
+  PropertyEnumerator0Base() {
     MaybeEnumerateProperties(  //
         Enumerate0, InOut(this->enumerated_));
   }
 };
 
 template <typename Parameter1Type,  //
-          typename EnumeratedType,  //
+          typename PropertyType,    //
           auto Enumerate1>
-class Enumerator1Base : public EnumeratedBase<EnumeratedType> {
+class PropertyEnumerator1Base : public EnumeratedPropertyBase<PropertyType> {
  public:
-  explicit Enumerator1Base(Parameter1Type param1) : param1_{param1} {
+  PropertyEnumerator1Base() = default;
+
+  explicit PropertyEnumerator1Base(Parameter1Type param1)
+      : param1_{std::move(param1)} {
     MaybeEnumerateProperties(  //
         std::bind_front(Enumerate1, param1_), InOut(this->enumerated_));
   }
@@ -197,12 +282,15 @@ class Enumerator1Base : public EnumeratedBase<EnumeratedType> {
 
 template <typename Parameter1Type,  //
           typename Parameter2Type,  //
-          typename EnumeratedType,  //
+          typename PropertyType,    //
           auto Enumerate2>
-class Enumerator2Base : public EnumeratedBase<EnumeratedType> {
+class PropertyEnumerator2Base : public EnumeratedPropertyBase<PropertyType> {
  public:
-  explicit Enumerator2Base(Parameter1Type param1, Parameter2Type param2)
-      : param1_{param1}, param2_{param2} {
+  PropertyEnumerator2Base() = default;
+
+  explicit PropertyEnumerator2Base(Parameter1Type param1, Parameter2Type param2)
+      : param1_{std::move(param1)},  //
+        param2_{std::move(param2)} {
     MaybeEnumerateProperties(  //
         std::bind_front(Enumerate2, param1_, param2_),
         InOut(this->enumerated_));
@@ -218,54 +306,54 @@ class Enumerator2Base : public EnumeratedBase<EnumeratedType> {
 using LayerName = const char*;
 
 using InstanceLayerPropertiesBase =  //
-    Enumerator0Base<                 //
+    PropertyEnumerator0Base<         //
         ::VkLayerProperties,         //
         ::vkEnumerateInstanceLayerProperties>;
 
 using InstanceExtensionPropertiesBase =  //
-    Enumerator1Base<                     //
+    PropertyEnumerator1Base<             //
         LayerName,                       //
         ::VkExtensionProperties,         //
         ::vkEnumerateInstanceExtensionProperties>;
 
-using PhysicalDevicesBase =  //
-    Enumerator1Base<         //
-        ::VkInstance,        //
-        ::VkPhysicalDevice,  //
+using PhysicalDevicesBase =   //
+    PropertyEnumerator1Base<  //
+        ::VkInstance,         //
+        ::VkPhysicalDevice,   //
         ::vkEnumeratePhysicalDevices>;
 
 using DeviceExtensionPropertiesBase =  //
-    Enumerator2Base<                   //
+    PropertyEnumerator2Base<           //
         ::VkPhysicalDevice,            //
         LayerName,                     //
         ::VkExtensionProperties,       //
         ::vkEnumerateDeviceExtensionProperties>;
 
 using PhysicalDeviceQueueFamilyPropertiesBase =  //
-    Enumerator1Base<                             //
+    PropertyEnumerator1Base<                     //
         ::VkPhysicalDevice,                      //
         ::VkQueueFamilyProperties,               //
         ::vkGetPhysicalDeviceQueueFamilyProperties>;
 
 using PhysicalDeviceSurfaceFormatsBase =  //
-    Enumerator2Base<                      //
+    PropertyEnumerator2Base<              //
         ::VkPhysicalDevice,               //
         ::VkSurfaceKHR,                   //
         ::VkSurfaceFormatKHR,             //
         ::vkGetPhysicalDeviceSurfaceFormatsKHR>;
 
 using PhysicalDeviceSurfacePresentModesBase =  //
-    Enumerator2Base<                           //
+    PropertyEnumerator2Base<                   //
         ::VkPhysicalDevice,                    //
         ::VkSurfaceKHR,                        //
         ::VkPresentModeKHR,                    //
         ::vkGetPhysicalDeviceSurfacePresentModesKHR>;
 
-using SwapchainImagesBase =  //
-    Enumerator2Base<         //
-        ::VkDevice,          //
-        ::VkSwapchainKHR,    //
-        ::VkImage,           //
+using SwapchainImagesBase =   //
+    PropertyEnumerator2Base<  //
+        ::VkDevice,           //
+        ::VkSwapchainKHR,     //
+        ::VkImage,            //
         ::vkGetSwapchainImagesKHR>;
 
 //------------------------------------------------------------------------------
@@ -315,10 +403,6 @@ class SwapchainImages final : public SwapchainImagesBase {
  public:
   using SwapchainImagesBase::SwapchainImagesBase;
 };
-
-//------------------------------------------------------------------------------
-// NOTE: Extra information (such as the create info, or the source device) is
-// retained (eg. on the heap, to avoid copies) for checking and debugging.
 
 //------------------------------------------------------------------------------
 
@@ -665,7 +749,7 @@ inline bool HasStringName(const std::vector<const char*>& names,
 }
 
 inline bool HasLayerProperty(                              //
-    const std::vector<::VkLayerProperties>& properties,    //
+    const std::span<::VkLayerProperties>& properties,      //
     std::string_view layer_name) {                         //
   return std::any_of(                                      //
       properties.begin(), properties.end(),                //
@@ -675,7 +759,7 @@ inline bool HasLayerProperty(                              //
 }
 
 inline bool HasExtensionProperty(                                  //
-    const std::vector<::VkExtensionProperties>& properties,        //
+    const std::span<::VkExtensionProperties>& properties,          //
     std::string_view extension_name) {                             //
   return std::any_of(                                              //
       properties.begin(), properties.end(),                        //
