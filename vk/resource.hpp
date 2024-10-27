@@ -243,14 +243,14 @@ class EnumeratedPropertyBase {
   EnumeratedPropertyBase() = default;
   ~EnumeratedPropertyBase() = default;
 
-  operator std::span<PropertyType>() { return {enumerated_}; }
-  operator std::span<const PropertyType>() const { return {enumerated_}; }
+  operator std::span<PropertyType>() { return {properties_}; }
+  operator std::span<const PropertyType>() const { return {properties_}; }
 
-  std::span<PropertyType> operator()() { return {enumerated_}; }
-  std::span<const PropertyType> operator()() const { return {enumerated_}; }
+  std::span<PropertyType> operator()() { return {properties_}; }
+  std::span<const PropertyType> operator()() const { return {properties_}; }
 
  protected:
-  std::vector<PropertyType> enumerated_;
+  std::vector<PropertyType> properties_;
 };
 
 template <typename PropertyType,  //
@@ -259,7 +259,7 @@ class PropertyEnumerator0Base : public EnumeratedPropertyBase<PropertyType> {
  public:
   PropertyEnumerator0Base() {
     MaybeEnumerateProperties(  //
-        Enumerate0, InOut(this->enumerated_));
+        Enumerate0, InOut(this->properties_));
   }
 };
 
@@ -273,7 +273,7 @@ class PropertyEnumerator1Base : public EnumeratedPropertyBase<PropertyType> {
   explicit PropertyEnumerator1Base(Parameter1Type param1)
       : param1_{std::move(param1)} {
     MaybeEnumerateProperties(  //
-        std::bind_front(Enumerate1, param1_), InOut(this->enumerated_));
+        std::bind_front(Enumerate1, param1_), InOut(this->properties_));
   }
 
  private:
@@ -293,7 +293,7 @@ class PropertyEnumerator2Base : public EnumeratedPropertyBase<PropertyType> {
         param2_{std::move(param2)} {
     MaybeEnumerateProperties(  //
         std::bind_front(Enumerate2, param1_, param2_),
-        InOut(this->enumerated_));
+        InOut(this->properties_));
   }
 
  private:
