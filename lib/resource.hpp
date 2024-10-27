@@ -543,13 +543,14 @@ class Device final {
       device_queue_infos_.back().pQueuePriorities = queue_priority.data();
     }
 
-    device_info_().queueCreateInfoCount = device_queue_infos_.size();
-    device_info_().pQueueCreateInfos = device_queue_infos_.data();
-    device_info_().enabledExtensionCount = device_extensions_.size();
-    device_info_().ppEnabledExtensionNames = device_extensions_.data();
-    device_info_().pEnabledFeatures = std::addressof(phys_device_features_);
+    ::VkDeviceCreateInfo create_info{};
+    create_info.queueCreateInfoCount = device_queue_infos_.size();
+    create_info.pQueueCreateInfos = device_queue_infos_.data();
+    create_info.enabledExtensionCount = device_extensions_.size();
+    create_info.ppEnabledExtensionNames = device_extensions_.data();
+    create_info.pEnabledFeatures = std::addressof(phys_device_features_);
 
-    device_ = vk::Device{phys_device, device_info_()};
+    device_ = vk::Device{phys_device, create_info};
 
     ::VkResult result = ::vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
         phys_device, surface_, std::addressof(surface_capabilities_));
@@ -577,7 +578,6 @@ class Device final {
   }
 
   vk::Device device_;
-  vk::DeviceCreateInfo device_info_;
 
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   ::VkSurfaceCapabilitiesKHR surface_capabilities_;
