@@ -391,9 +391,9 @@ class Swapchain final {
 
   ::VkDevice device_ = VK_NULL_HANDLE;
   vk::Swapchain swapchain_;
-  std::vector<std::uint32_t> queue_families_;
   vk::SwapchainImages swapchain_images_;
 
+  std::vector<std::uint32_t> queue_families_;
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   ::VkSurfaceCapabilitiesKHR surface_capabilities_;
   ::VkSurfaceFormatKHR surface_format_;

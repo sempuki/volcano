@@ -526,6 +526,22 @@ using InstanceBase =             //
         ::vkCreateInstance,      //
         ::vkDestroyInstance>;
 
+namespace impl {
+inline void DestroyDeviceAdapter(::VkPhysicalDevice _, ::VkDevice device,
+                                 const VkAllocationCallbacks* allocator) {
+  ::vkDestroyDevice(device, allocator);
+}
+}  // namespace impl
+
+using DeviceBase =             //
+    ParentedHandleBase<        //
+        ::VkPhysicalDevice,    //
+        ::VkDevice,            //
+        ::VkDeviceCreateInfo,  //
+        DeviceCreateInfo,      //
+        ::vkCreateDevice,      //
+        impl::DestroyDeviceAdapter>;
+
 using BufferBase =             //
     ParentedHandleBase<        //
         ::VkDevice,            //
@@ -543,6 +559,40 @@ using DeviceMemoryBase =         //
         MemoryAllocateInfo,      //
         ::vkAllocateMemory,      //
         ::vkFreeMemory>;
+
+struct QueueIndex final {
+  std::uint32_t family_index = std::numeric_limits<std::uint32_t>::max();
+  std::uint32_t index = std::numeric_limits<std::uint32_t>::max();
+
+  QueueIndex& operator()() noexcept { return *this; };
+  const QueueIndex& operator()() const noexcept { return *this; };
+
+  QueueIndex* address() noexcept { return this; }
+  const QueueIndex* address() const noexcept { return this; }
+};
+
+namespace impl {
+inline ::VkResult CreateDeviceQueueAdapter(::VkDevice device,               //
+                                           const QueueIndex* queue,         //
+                                           const VkAllocationCallbacks* _,  //
+                                           ::VkQueue* handle) {
+  ::vkGetDeviceQueue(device, queue->family_index, queue->index, handle);
+  return VK_SUCCESS;
+}
+inline void DestroyDeviceQueueAdapter(::VkDevice _1, ::VkQueue _2,
+                                      const VkAllocationCallbacks* _3) {}
+}  // namespace impl
+
+using QueueBase =                        //
+    ParentedHandleBase<                  //
+        ::VkDevice,                      //
+        ::VkQueue,                       //
+        QueueIndex,                      //
+        QueueIndex,                      //
+        impl::CreateDeviceQueueAdapter,  //
+        impl::DestroyDeviceQueueAdapter>;
+
+//------------------------------------------------------------------------------
 
 using CommandPoolBase =             //
     ParentedHandleBase<             //
@@ -605,6 +655,11 @@ class Instance final : public InstanceBase {
   using InstanceBase::InstanceBase;
 };
 
+class Device final : public DeviceBase {
+ public:
+  using DeviceBase::DeviceBase;
+};
+
 class Buffer final : public BufferBase {
  public:
   using BufferBase::BufferBase;
@@ -643,104 +698,6 @@ class ShaderModule final : public ShaderModuleBase {
 class Swapchain final : public SwapchainBase {
  public:
   using SwapchainBase::SwapchainBase;
-};
-
-//------------------------------------------------------------------------------
-
-class Device final {
- public:
-  DECLARE_COPY_DELETE(Device);
-
-  Device() = default;
-  ~Device() {
-    if (device_ != VK_NULL_HANDLE) {
-      ::vkDestroyDevice(device_, ALLOCATOR);
-    }
-  }
-
-  Device(Device&& that) noexcept
-      : device_{that.device_},
-        phys_device_{that.phys_device_},
-        create_info_{std::move(that.create_info_)} {
-    that.device_ = VK_NULL_HANDLE;
-    that.phys_device_ = VK_NULL_HANDLE;
-  }
-
-  Device& operator=(Device&& that) noexcept {
-    if (this != &that) {
-      using std::swap;
-      swap(this->device_, that.device_);
-      swap(this->phys_device_, that.phys_device_);
-      swap(this->create_info_, that.create_info_);
-    }
-    return *this;
-  }
-
-  explicit Device(::VkPhysicalDevice phys_device,
-                  const ::VkDeviceCreateInfo& create_info)
-      : phys_device_{phys_device}, create_info_{create_info} {
-    ::VkResult result =
-        ::vkCreateDevice(phys_device_, create_info_.address(), vk::ALLOCATOR,
-                         std::addressof(device_));
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
-  }
-
-  explicit operator bool() const {
-    return phys_device_ != VK_NULL_HANDLE && device_ != VK_NULL_HANDLE;
-  }
-
-  operator ::VkDevice() const { return device_; }
-
-  ::VkDevice handle() const { return device_; }
-  ::VkPhysicalDevice phys_device() const { return phys_device_; }
-
-  const ::VkDeviceCreateInfo& create_info() const { return create_info_(); }
-
- private:
-  ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkPhysicalDevice phys_device_ = VK_NULL_HANDLE;
-  DeviceCreateInfo create_info_;
-};
-
-//------------------------------------------------------------------------------
-
-class Queue final {
- public:
-  DECLARE_COPY_DELETE(Queue);
-  DECLARE_MOVE_DEFAULT(Queue);
-
-  Queue() = default;
-  ~Queue() = default;
-
-  explicit Queue(::VkDevice device,                 //
-                 std::uint32_t queue_family_index,  //
-                 std::uint32_t queue_index)
-      : device_{device},
-        queue_family_index_{queue_family_index},
-        queue_index_{queue_index} {
-    CHECK_PRECONDITION(device_ != VK_NULL_HANDLE);
-    ::vkGetDeviceQueue(device_, queue_family_index_, queue_index_,
-                       std::addressof(queue_));
-  }
-
-  explicit operator bool() const {
-    return device_ != VK_NULL_HANDLE && queue_ != VK_NULL_HANDLE;
-  }
-
-  operator ::VkQueue() const { return queue_; }
-
-  ::VkDevice device() const { return device_; }
-  ::VkQueue handle() const { return queue_; }
-
-  std::uint32_t family_index() const { return queue_family_index_; }
-  std::uint32_t index() const { return queue_index_; }
-
- private:
-  ::VkDevice device_ = VK_NULL_HANDLE;
-  ::VkQueue queue_ = VK_NULL_HANDLE;
-
-  std::uint32_t queue_family_index_ = std::numeric_limits<std::uint32_t>::max();
-  std::uint32_t queue_index_ = std::numeric_limits<std::uint32_t>::max();
 };
 
 //------------------------------------------------------------------------------
