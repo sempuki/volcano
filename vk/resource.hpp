@@ -423,7 +423,7 @@ class HandleBase {
   }
 
   HandleBase(HandleBase&& that) noexcept
-      : handle_{that.handle_}, create_info_{std::move(that.create_info_)} {
+      : handle_{that.handle_}, info_{std::move(that.info_)} {
     that.handle_ = VK_NULL_HANDLE;
   }
 
@@ -431,15 +431,14 @@ class HandleBase {
     if (this != &that) {
       using std::swap;
       swap(this->handle_, that.handle_);
-      swap(this->create_info_, that.create_info_);
+      swap(this->info_, that.info_);
     }
     return *this;
   }
 
-  explicit HandleBase(const HandleCreateInfoType& create_info)
-      : create_info_{create_info} {
-    ::VkResult result = CreateHandle(create_info_.address(), ALLOCATOR,
-                                     std::addressof(handle_));
+  explicit HandleBase(const HandleCreateInfoType& info) : info_{info} {
+    ::VkResult result =
+        CreateHandle(info_.address(), ALLOCATOR, std::addressof(handle_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
@@ -447,11 +446,11 @@ class HandleBase {
   operator HandleType() const { return handle_; }
 
   HandleType handle() const { return handle_; }
-  const HandleCreateInfoType& create_info() const { return create_info_(); }
+  const HandleCreateInfoType& info() const { return info_(); }
 
  private:
   HandleType handle_ = VK_NULL_HANDLE;
-  HandleCreateInfoAdapterType create_info_;
+  HandleCreateInfoAdapterType info_;
 };
 
 //------------------------------------------------------------------------------
@@ -477,7 +476,7 @@ class ParentedHandleBase {
   ParentedHandleBase(ParentedHandleBase&& that) noexcept
       : parent_{that.parent_},
         handle_{that.handle_},
-        create_info_{std::move(that.create_info_)} {
+        info_{std::move(that.info_)} {
     that.parent_ = VK_NULL_HANDLE;
     that.handle_ = VK_NULL_HANDLE;
   }
@@ -487,15 +486,15 @@ class ParentedHandleBase {
       using std::swap;
       swap(this->parent_, that.parent_);
       swap(this->handle_, that.handle_);
-      swap(this->create_info_, that.create_info_);
+      swap(this->info_, that.info_);
     }
     return *this;
   }
 
   explicit ParentedHandleBase(ParentType parent,
-                              const HandleCreateInfoType& create_info)
-      : parent_{parent}, create_info_{create_info} {
-    ::VkResult result = CreateHandle(parent_, create_info_.address(), ALLOCATOR,
+                              const HandleCreateInfoType& info)
+      : parent_{parent}, info_{info} {
+    ::VkResult result = CreateHandle(parent_, info_.address(), ALLOCATOR,
                                      std::addressof(handle_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
@@ -508,12 +507,12 @@ class ParentedHandleBase {
   ParentType parent() const { return parent_; }
   HandleType handle() const { return handle_; }
 
-  const HandleCreateInfoType& create_info() const { return create_info_(); }
+  const HandleCreateInfoType& info() const { return info_(); }
 
  private:
   ParentType parent_ = VK_NULL_HANDLE;
   HandleType handle_ = VK_NULL_HANDLE;
-  HandleCreateInfoAdapterType create_info_;
+  HandleCreateInfoAdapterType info_;
 };
 
 //------------------------------------------------------------------------------
