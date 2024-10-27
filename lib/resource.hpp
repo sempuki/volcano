@@ -654,11 +654,12 @@ class Instance final {
                     DebugLevel debug_level)
       : instance_layers_{std::move(layers)},
         instance_extensions_{std::move(extensions)} {
-    instance_info_().pApplicationInfo = app_info;
+    ::VkInstanceCreateInfo create_info{};
+    create_info.pApplicationInfo = app_info;
 
     if (debug_level != DebugLevel::NONE &&
         vk::HasStringName(instance_extensions_, impl::DEBUG_EXTENSION_NAME)) {
-      instance_info_().pNext = debug_messenger_info_.address();
+      create_info.pNext = debug_messenger_info_.address();
 
       debug_messenger_info_().messageSeverity =
           ConvertToDebugSeverity(debug_level);
@@ -669,10 +670,10 @@ class Instance final {
       debug_messenger_info_().pfnUserCallback = DebugMessengerCallback;
     }
 
-    instance_info_().enabledLayerCount = instance_layers_.size();
-    instance_info_().ppEnabledLayerNames = instance_layers_.data();
-    instance_info_().enabledExtensionCount = instance_extensions_.size();
-    instance_info_().ppEnabledExtensionNames = instance_extensions_.data();
+    create_info.enabledLayerCount = instance_layers_.size();
+    create_info.ppEnabledLayerNames = instance_layers_.data();
+    create_info.enabledExtensionCount = instance_extensions_.size();
+    create_info.ppEnabledExtensionNames = instance_extensions_.data();
 
     std::print("Requested Layers: \n");
     for (auto&& layer : instance_layers_) {
@@ -684,7 +685,7 @@ class Instance final {
       std::print(" -- {}\n", extension);
     }
 
-    instance_ = vk::Instance{instance_info_()};
+    instance_ = vk::Instance{create_info};
 
     if (debug_level != DebugLevel::NONE &&
         vk::HasStringName(instance_extensions_, impl::DEBUG_EXTENSION_NAME)) {
@@ -796,7 +797,6 @@ class Instance final {
   ::PFN_vkCreateDebugUtilsMessengerEXT create_debug_messenger_ = nullptr;
   ::PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_messenger_ = nullptr;
 
-  vk::InstanceCreateInfo instance_info_;
   vk::DebugUtilsMessengerCreateInfo debug_messenger_info_;
 
   std::vector<const char*> instance_layers_;
