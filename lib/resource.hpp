@@ -83,17 +83,16 @@ class Buffer final {
                   ::VkDeviceSize byte_count,  //
                   ::VkBufferUsageFlags buffer_usage)
       : device_{device} {
-    buffer_info_().size = byte_count;
-    buffer_info_().usage = buffer_usage;
-    buffer_info_().sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    buffer_ = vk::Buffer{device_, buffer_info_()};
+    buffer_ = vk::Buffer{device_, ::VkBufferCreateInfo{
+                                      .size = byte_count,
+                                      .usage = buffer_usage,
+                                      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                                  }};
     memory_requirements_ = vk::MemoryRequirements{device_, buffer_};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
   vk::Buffer buffer_;
-  vk::BufferCreateInfo buffer_info_;
   vk::MemoryRequirements memory_requirements_;
 };
 
@@ -107,7 +106,7 @@ class DeviceMemory final {
   ~DeviceMemory() = default;
 
   void CopyInitialize(std::span<const std::byte> data) {
-    CHECK_PRECONDITION(data.size() <= memory_info_().allocationSize);
+    CHECK_PRECONDITION(data.size() <= memory_.info().allocationSize);
     CHECK_PRECONDITION(host_bytes_);
 
     std::copy(data.begin(), data.end(), host_bytes_);
@@ -125,9 +124,11 @@ class DeviceMemory final {
                         std::uint32_t memory_type_index,      //
                         ::VkBuffer target_buffer)
       : device_{device} {
-    memory_info_().allocationSize = required_byte_count;
-    memory_info_().memoryTypeIndex = memory_type_index;
-    memory_ = vk::DeviceMemory{device_, memory_info_()};
+    memory_ =
+        vk::DeviceMemory{device_, ::VkMemoryAllocateInfo{
+                                      .allocationSize = required_byte_count,
+                                      .memoryTypeIndex = memory_type_index,
+                                  }};
 
     ::VkResult result = ::vkBindBufferMemory(device_, target_buffer, memory_,
                                              required_byte_offset);
@@ -142,10 +143,9 @@ class DeviceMemory final {
     host_bytes_ = reinterpret_cast<std::byte*>(host_pointer);
   }
 
-  std::byte* host_bytes_ = nullptr;
   ::VkDevice device_ = VK_NULL_HANDLE;
   vk::DeviceMemory memory_;
-  vk::MemoryAllocateInfo memory_info_;
+  std::byte* host_bytes_ = nullptr;
 };
 
 //------------------------------------------------------------------------------
@@ -162,13 +162,13 @@ class CommandPool final {
 
   explicit CommandPool(::VkDevice device, std::uint32_t queue_family_index)
       : device_{device} {
-    command_pool_info_().queueFamilyIndex = queue_family_index;
-    command_pool_ = vk::CommandPool{device_, command_pool_info_()};
+    command_pool_ = vk::CommandPool{
+        device_,
+        ::VkCommandPoolCreateInfo{.queueFamilyIndex = queue_family_index}};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
   vk::CommandPool command_pool_;
-  vk::CommandPoolCreateInfo command_pool_info_;
 };
 
 //------------------------------------------------------------------------------
@@ -185,24 +185,26 @@ class ImageView final {
 
   explicit ImageView(::VkDevice device, ::VkImage image, ::VkFormat format)
       : device_{device} {
-    image_view_info_().image = image;
-    image_view_info_().viewType = VK_IMAGE_VIEW_TYPE_2D;
-    image_view_info_().format = format;
-    image_view_info_().components = {VK_COMPONENT_SWIZZLE_IDENTITY,  //
-                                     VK_COMPONENT_SWIZZLE_IDENTITY,  //
-                                     VK_COMPONENT_SWIZZLE_IDENTITY,  //
-                                     VK_COMPONENT_SWIZZLE_IDENTITY};
-    image_view_info_().subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    image_view_info_().subresourceRange.baseMipLevel = 0;
-    image_view_info_().subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-    image_view_info_().subresourceRange.baseArrayLayer = 0;
-    image_view_info_().subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-    image_view_ = vk::ImageView{device_, image_view_info_()};
+    ::VkImageViewCreateInfo create_info{};
+
+    create_info.image = image;
+    create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    create_info.format = format,
+    create_info.components = {VK_COMPONENT_SWIZZLE_IDENTITY,  //
+                              VK_COMPONENT_SWIZZLE_IDENTITY,  //
+                              VK_COMPONENT_SWIZZLE_IDENTITY,  //
+                              VK_COMPONENT_SWIZZLE_IDENTITY};
+    create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    create_info.subresourceRange.baseMipLevel = 0;
+    create_info.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+    create_info.subresourceRange.baseArrayLayer = 0;
+    create_info.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+    image_view_ = vk::ImageView{device_, create_info};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
   vk::ImageView image_view_;
-  vk::ImageViewCreateInfo image_view_info_;
 };
 
 //------------------------------------------------------------------------------
@@ -272,18 +274,20 @@ class RenderPass final {
         subpass_dependencies{src_subpass_dependency, dst_subpass_dependency};
 
     color_attachment.front().format = format;
-    render_pass_info_().attachmentCount = color_attachment.size();
-    render_pass_info_().pAttachments = color_attachment.data();
-    render_pass_info_().subpassCount = subpass_description.size();
-    render_pass_info_().pSubpasses = subpass_description.data();
-    render_pass_info_().dependencyCount = subpass_dependencies.size();
-    render_pass_info_().pDependencies = subpass_dependencies.data();
-    render_pass_ = vk::RenderPass{device_, render_pass_info_()};
+
+    render_pass_ = vk::RenderPass{
+        device_, ::VkRenderPassCreateInfo{
+                     .attachmentCount = color_attachment.size(),
+                     .pAttachments = color_attachment.data(),
+                     .subpassCount = subpass_description.size(),
+                     .pSubpasses = subpass_description.data(),
+                     .dependencyCount = subpass_dependencies.size(),
+                     .pDependencies = subpass_dependencies.data(),
+                 }};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
   vk::RenderPass render_pass_;
-  vk::RenderPassCreateInfo render_pass_info_;
 };
 
 //------------------------------------------------------------------------------
@@ -299,12 +303,12 @@ class PipelineLayout final {
   friend class Device;
 
   explicit PipelineLayout(::VkDevice device) : device_{device} {
-    pipeline_layout_ = vk::PipelineLayout{device_, pipeline_layout_info_()};
+    pipeline_layout_ =
+        vk::PipelineLayout{device_, ::VkPipelineLayoutCreateInfo{}};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
   vk::PipelineLayout pipeline_layout_;
-  vk::PipelineLayoutCreateInfo pipeline_layout_info_;
 };
 
 //------------------------------------------------------------------------------
@@ -322,15 +326,16 @@ class ShaderModule final {
   explicit ShaderModule(::VkDevice device,
                         const std::vector<std::uint32_t>& shader_spirv_bin)
       : device_{device} {
-    shader_module_info_().pCode = shader_spirv_bin.data();
-    shader_module_info_().codeSize =  // Byte count.
-        shader_spirv_bin.size() * sizeof(std::uint32_t);
-    shader_module_ = vk::ShaderModule{device_, shader_module_info_()};
+    ::VkShaderModuleCreateInfo create_info{};
+    create_info.pCode = shader_spirv_bin.data();
+    create_info.codeSize =
+        shader_spirv_bin.size() * sizeof(std::uint32_t);  // Byte count.
+
+    shader_module_ = vk::ShaderModule{device_, create_info};
   }
 
   ::VkDevice device_ = VK_NULL_HANDLE;
   vk::ShaderModule shader_module_;
-  vk::ShaderModuleCreateInfo shader_module_info_;
 };
 
 //------------------------------------------------------------------------------
@@ -359,33 +364,36 @@ class Swapchain final {
         surface_{surface},
         surface_capabilities_{surface_capabilities},
         surface_format_{surface_format} {
-    swapchain_info_().surface = surface_;
-    swapchain_info_().minImageCount = surface_capabilities_.minImageCount + 1;
-    swapchain_info_().imageFormat = surface_format_.format;
-    swapchain_info_().imageColorSpace = surface_format_.colorSpace;
-    swapchain_info_().imageExtent = surface_capabilities_.currentExtent;
-    swapchain_info_().imageArrayLayers = 1;  // Non-stereoscopic.
-    swapchain_info_().imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    swapchain_info_().imageSharingMode = queue_families_.size() > 1
-                                             ? VK_SHARING_MODE_CONCURRENT
-                                             : VK_SHARING_MODE_EXCLUSIVE;
-    swapchain_info_().queueFamilyIndexCount = queue_families_.size();
-    swapchain_info_().pQueueFamilyIndices = queue_families_.data();
-    swapchain_info_().preTransform = surface_capabilities_.currentTransform;
-    swapchain_info_().compositeAlpha =
+    VkCompositeAlphaFlagBitsKHR composite_alpha =
         vk::FindFirstFlag(surface_capabilities_.supportedCompositeAlpha,
                           {VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
                            VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
                            VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
                            VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR},
                           static_cast<::VkCompositeAlphaFlagBitsKHR>(-1));
-    CHECK_INVARIANT(swapchain_info_().compositeAlpha != -1);
+    CHECK_INVARIANT(composite_alpha != -1);
 
-    swapchain_info_().presentMode = surface_present_mode;
-    swapchain_info_().clipped = VK_TRUE;
-    swapchain_info_().oldSwapchain = previous_swapchain;
+    swapchain_ = vk::Swapchain{
+        device_, ::VkSwapchainCreateInfoKHR{
+                     .surface = surface_,
+                     .minImageCount = surface_capabilities_.minImageCount + 1,
+                     .imageFormat = surface_format_.format,
+                     .imageColorSpace = surface_format_.colorSpace,
+                     .imageExtent = surface_capabilities_.currentExtent,
+                     .imageArrayLayers = 1,  // Non-stereoscopic.
+                     .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                     .imageSharingMode = queue_families_.size() > 1
+                                             ? VK_SHARING_MODE_CONCURRENT
+                                             : VK_SHARING_MODE_EXCLUSIVE,
+                     .queueFamilyIndexCount = queue_families_.size(),
+                     .pQueueFamilyIndices = queue_families_.data(),
+                     .preTransform = surface_capabilities_.currentTransform,
+                     .compositeAlpha = composite_alpha,
+                     .presentMode = surface_present_mode,
+                     .clipped = VK_TRUE,
+                     .oldSwapchain = previous_swapchain,
+                 }};
 
-    swapchain_ = vk::Swapchain{device_, swapchain_info_()};
     swapchain_images_ = vk::SwapchainImages{device_, swapchain_};
   }
 
@@ -397,7 +405,6 @@ class Swapchain final {
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   ::VkSurfaceCapabilitiesKHR surface_capabilities_;
   ::VkSurfaceFormatKHR surface_format_;
-  vk::SwapchainCreateInfo swapchain_info_;
 };
 
 //------------------------------------------------------------------------------
