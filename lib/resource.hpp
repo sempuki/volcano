@@ -19,12 +19,6 @@ constexpr const char* VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
 constexpr const char* SWAPCHAIN_EXTENSION_NAME =
     VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 constexpr const char* DEBUG_EXTENSION_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-constexpr const char* DEBUG_CREATE_FUNCTION_NAME =
-    "vkCreateDebugUtilsMessengerEXT";
-constexpr const char* DEBUG_DESTROY_FUNCTION_NAME =
-    "vkDestroyDebugUtilsMessengerEXT";
-constexpr const char* DEBUG_SUBMIT_FUNCTION_NAME =
-    "vkSubmitDebugUtilsMessageEXT";
 
 }  // namespace impl
 
@@ -599,12 +593,7 @@ class Instance final {
   DECLARE_MOVE_DEFAULT(Instance);
 
   Instance() = delete;
-  ~Instance() {
-    if (instance_ && destroy_debug_messenger_ &&
-        debug_messenger_ != VK_NULL_HANDLE) {
-      destroy_debug_messenger_(instance_, debug_messenger_, vk::ALLOCATOR);
-    }
-  }
+  ~Instance() = default;
 
   ::VkInstance Handle() const { return instance_; }
 
@@ -654,27 +643,6 @@ class Instance final {
                     DebugLevel debug_level)
       : instance_layers_{std::move(layers)},
         instance_extensions_{std::move(extensions)} {
-    ::VkInstanceCreateInfo create_info{};
-    create_info.pApplicationInfo = app_info;
-
-    if (debug_level != DebugLevel::NONE &&
-        vk::HasStringName(instance_extensions_, impl::DEBUG_EXTENSION_NAME)) {
-      create_info.pNext = debug_messenger_info_.address();
-
-      debug_messenger_info_().messageSeverity =
-          ConvertToDebugSeverity(debug_level);
-      debug_messenger_info_().messageType =
-          VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-          VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-          VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-      debug_messenger_info_().pfnUserCallback = DebugMessengerCallback;
-    }
-
-    create_info.enabledLayerCount = instance_layers_.size();
-    create_info.ppEnabledLayerNames = instance_layers_.data();
-    create_info.enabledExtensionCount = instance_extensions_.size();
-    create_info.ppEnabledExtensionNames = instance_extensions_.data();
-
     std::print("Requested Layers: \n");
     for (auto&& layer : instance_layers_) {
       std::print(" == {}\n", layer);
@@ -685,22 +653,33 @@ class Instance final {
       std::print(" -- {}\n", extension);
     }
 
+    ::VkInstanceCreateInfo create_info{
+        .pApplicationInfo = app_info,
+        .enabledLayerCount = instance_layers_.size(),
+        .ppEnabledLayerNames = instance_layers_.data(),
+        .enabledExtensionCount = instance_extensions_.size(),
+        .ppEnabledExtensionNames = instance_extensions_.data(),
+    };
+
+    const bool use_debug =
+        debug_level != DebugLevel::NONE &&
+        vk::HasStringName(instance_extensions_, impl::DEBUG_EXTENSION_NAME);
+
+    if (use_debug) {
+      create_info.pNext = debug_create_info_.address();
+      debug_create_info_().messageSeverity =
+          ConvertToDebugSeverity(debug_level);
+      debug_create_info_().messageType =
+          VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+          VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+          VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+      debug_create_info_().pfnUserCallback = DebugMessengerCallback;
+    }
+
     instance_ = vk::Instance{create_info};
 
-    if (debug_level != DebugLevel::NONE &&
-        vk::HasStringName(instance_extensions_, impl::DEBUG_EXTENSION_NAME)) {
-      vk::LoadInstanceFunction(impl::DEBUG_CREATE_FUNCTION_NAME, instance_,
-                               Out(create_debug_messenger_));
-      vk::LoadInstanceFunction(impl::DEBUG_DESTROY_FUNCTION_NAME, instance_,
-                               Out(destroy_debug_messenger_));
-      vk::LoadInstanceFunction(impl::DEBUG_SUBMIT_FUNCTION_NAME, instance_,
-                               Out(submit_debug_message_));
-
-      ::VkResult result = create_debug_messenger_(
-          instance_, debug_messenger_info_.address(), vk::ALLOCATOR,
-          std::addressof(debug_messenger_));
-      CHECK_POSTCONDITION(result == VK_SUCCESS);
-      CHECK_POSTCONDITION(debug_messenger_ != VK_NULL_HANDLE);
+    if (use_debug) {
+      debug_ = vk::DebugMessenger(instance_, debug_create_info_());
     }
 
     phys_devices_ = vk::PhysicalDevices{instance_};
@@ -791,13 +770,9 @@ class Instance final {
   }
 
   vk::Instance instance_;
-  ::VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
 
-  ::PFN_vkSubmitDebugUtilsMessageEXT submit_debug_message_ = nullptr;
-  ::PFN_vkCreateDebugUtilsMessengerEXT create_debug_messenger_ = nullptr;
-  ::PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_messenger_ = nullptr;
-
-  vk::DebugUtilsMessengerCreateInfo debug_messenger_info_;
+  vk::DebugMessenger debug_;
+  vk::DebugUtilsMessengerCreateInfo debug_create_info_;
 
   std::vector<const char*> instance_layers_;
   std::vector<const char*> instance_extensions_;

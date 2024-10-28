@@ -440,6 +440,7 @@ class HandleBase {
     ::VkResult result =
         CreateHandle(info_.address(), ALLOCATOR, std::addressof(handle_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
+    CHECK_POSTCONDITION(handle_ != VK_NULL_HANDLE);
   }
 
   explicit operator bool() const { return handle_ != VK_NULL_HANDLE; }
@@ -468,7 +469,6 @@ class ParentedHandleBase {
   ParentedHandleBase() = default;
   ~ParentedHandleBase() {
     if (handle_ != VK_NULL_HANDLE) {
-      CHECK_INVARIANT(parent_ != VK_NULL_HANDLE);
       DestroyHandle(parent_, handle_, ALLOCATOR);
     }
   }
@@ -494,9 +494,11 @@ class ParentedHandleBase {
   explicit ParentedHandleBase(ParentType parent,
                               const HandleCreateInfoType& info)
       : parent_{parent}, info_{info} {
+    CHECK_PRECONDITION(parent != VK_NULL_HANDLE);
     ::VkResult result = CreateHandle(parent_, info_.address(), ALLOCATOR,
                                      std::addressof(handle_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
+    CHECK_POSTCONDITION(handle_ != VK_NULL_HANDLE);
   }
 
   explicit operator bool() const {
@@ -750,9 +752,80 @@ template <typename TargetFunctionPointer>
 inline void LoadInstanceFunction(const char* name, ::VkInstance instance,
                                  Out<TargetFunctionPointer> target) {
   CHECK_PRECONDITION(instance != VK_NULL_HANDLE);
+  CHECK_PRECONDITION(name != nullptr);
   *target = reinterpret_cast<TargetFunctionPointer>(
       ::vkGetInstanceProcAddr(instance, name));
+  CHECK_POSTCONDITION(*target != nullptr);
 }
+
+//------------------------------------------------------------------------------
+class DebugMessenger final {
+ public:
+  DECLARE_COPY_DELETE(DebugMessenger);
+
+  DebugMessenger() = default;
+  ~DebugMessenger() {
+    if (handle_ != VK_NULL_HANDLE) {
+      destroy_(instance_, handle_, ALLOCATOR);
+    }
+  }
+
+  DebugMessenger(DebugMessenger&& that) noexcept
+      : instance_{that.instance_},
+        handle_{that.handle_},
+        submit_{that.submit_},
+        create_{that.create_},
+        destroy_{that.destroy_} {
+    that.instance_ = VK_NULL_HANDLE;
+    that.handle_ = VK_NULL_HANDLE;
+  }
+
+  DebugMessenger& operator=(DebugMessenger&& that) noexcept {
+    if (this != &that) {
+      using std::swap;
+      swap(this->instance_, that.instance_);
+      swap(this->handle_, that.handle_);
+      swap(this->submit_, that.submit_);
+      swap(this->create_, that.create_);
+      swap(this->destroy_, that.destroy_);
+    }
+    return *this;
+  }
+
+  explicit DebugMessenger(
+      ::VkInstance instance,
+      const ::VkDebugUtilsMessengerCreateInfoEXT& create_info)
+      : instance_{instance} {
+    CHECK_PRECONDITION(instance_ != VK_NULL_HANDLE);
+
+    vk::LoadInstanceFunction(CREATE_FUNCTION_NAME, instance_, Out(create_));
+    vk::LoadInstanceFunction(DESTROY_FUNCTION_NAME, instance_, Out(destroy_));
+    vk::LoadInstanceFunction(SUBMIT_FUNCTION_NAME, instance_, Out(submit_));
+
+    ::VkResult result = create_(instance_, std::addressof(create_info),
+                                ALLOCATOR, std::addressof(handle_));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    CHECK_POSTCONDITION(handle_ != VK_NULL_HANDLE);
+  }
+
+  explicit operator bool() const {
+    return instance_ != VK_NULL_HANDLE && handle_ != VK_NULL_HANDLE;
+  }
+
+ private:
+  static constexpr const char* SUBMIT_FUNCTION_NAME =
+      "vkSubmitDebugUtilsMessageEXT";
+  static constexpr const char* CREATE_FUNCTION_NAME =
+      "vkCreateDebugUtilsMessengerEXT";
+  static constexpr const char* DESTROY_FUNCTION_NAME =
+      "vkDestroyDebugUtilsMessengerEXT";
+
+  ::VkInstance instance_ = VK_NULL_HANDLE;
+  ::VkDebugUtilsMessengerEXT handle_ = VK_NULL_HANDLE;
+  ::PFN_vkSubmitDebugUtilsMessageEXT submit_ = nullptr;
+  ::PFN_vkCreateDebugUtilsMessengerEXT create_ = nullptr;
+  ::PFN_vkDestroyDebugUtilsMessengerEXT destroy_ = nullptr;
+};
 
 //------------------------------------------------------------------------------
 
