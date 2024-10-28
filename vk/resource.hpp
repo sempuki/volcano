@@ -136,11 +136,17 @@ class QueriedPropertyBase {
   QueriedPropertyBase() = default;
   ~QueriedPropertyBase() = default;
 
+  explicit QueriedPropertyBase(const PropertyType& property)
+      : property_{property} {}
+
   operator PropertyType&() { return property_; }
   operator const PropertyType&() const { return property_; }
 
   PropertyType& operator()() { return property_; }
   const PropertyType& operator()() const { return property_; }
+
+  PropertyType* address() { return std::addressof(property_); }
+  const PropertyType* address() const { return std::addressof(property_); }
 
  protected:
   PropertyType property_;
@@ -149,7 +155,12 @@ class QueriedPropertyBase {
 template <typename PropertyType,  //
           auto Query0>
 class PropertyQuerier0Base : public QueriedPropertyBase<PropertyType> {
+  using BaseType = QueriedPropertyBase<PropertyType>;
+
  public:
+  explicit PropertyQuerier0Base(const PropertyType& property)
+      : BaseType{property} {}
+
   PropertyQuerier0Base() { Query0(std::addressof(this->property_)); }
 };
 
@@ -157,8 +168,13 @@ template <typename Parameter1Type,  //
           typename PropertyType,    //
           auto Query1>
 class PropertyQuerier1Base : public QueriedPropertyBase<PropertyType> {
+  using BaseType = QueriedPropertyBase<PropertyType>;
+
  public:
   PropertyQuerier1Base() = default;
+
+  explicit PropertyQuerier1Base(const PropertyType& property)
+      : BaseType{property} {}
 
   explicit PropertyQuerier1Base(Parameter1Type param1)
       : param1_{std::move(param1)} {
@@ -174,8 +190,13 @@ template <typename Parameter1Type,  //
           typename PropertyType,    //
           auto Query2>
 class PropertyQuerier2Base : public QueriedPropertyBase<PropertyType> {
+  using BaseType = QueriedPropertyBase<PropertyType>;
+
  public:
   PropertyQuerier2Base() = default;
+
+  explicit PropertyQuerier2Base(const PropertyType& property)
+      : BaseType{property} {}
 
   explicit PropertyQuerier2Base(Parameter1Type param1, Parameter2Type param2)
       : param1_{std::move(param1)},  //
@@ -215,6 +236,13 @@ using PhysicalDeviceFeaturesBase =   //
         ::VkPhysicalDeviceFeatures,  //
         ::vkGetPhysicalDeviceFeatures>;
 
+using PhysicalDeviceSurfaceCapabilitiesBase =  //
+    PropertyQuerier2Base<                      //
+        ::VkPhysicalDevice,                    //
+        ::VkSurfaceKHR,                        //
+        ::VkSurfaceCapabilitiesKHR,            //
+        ::vkGetPhysicalDeviceSurfaceCapabilitiesKHR>;
+
 //------------------------------------------------------------------------------
 
 DERIVE_FINAL_WITH_CONSTRUCTORS(MemoryRequirements,  //
@@ -228,6 +256,9 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceMemoryProperties,  //
 
 DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceFeatures,  //
                                PhysicalDeviceFeaturesBase);
+
+DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceSurfaceCapabilities,  //
+                               PhysicalDeviceSurfaceCapabilitiesBase);
 
 //------------------------------------------------------------------------------
 
@@ -268,6 +299,9 @@ class EnumeratedPropertyBase {
   EnumeratedPropertyBase() = default;
   ~EnumeratedPropertyBase() = default;
 
+  explicit EnumeratedPropertyBase(std::span<PropertyType> properties)
+      : properties_(properties.begin(), properties.end()) {}
+
   operator std::span<PropertyType>() { return {properties_}; }
   operator std::span<const PropertyType>() const { return {properties_}; }
 
@@ -281,7 +315,12 @@ class EnumeratedPropertyBase {
 template <typename PropertyType,  //
           auto Enumerate0>
 class PropertyEnumerator0Base : public EnumeratedPropertyBase<PropertyType> {
+  using BaseType = EnumeratedPropertyBase<PropertyType>;
+
  public:
+  explicit PropertyEnumerator0Base(std::span<PropertyType> properties)
+      : BaseType{std::move(properties)} {}
+
   PropertyEnumerator0Base() {
     MaybeEnumerateProperties(  //
         Enumerate0, InOut(this->properties_));
@@ -292,8 +331,13 @@ template <typename Parameter1Type,  //
           typename PropertyType,    //
           auto Enumerate1>
 class PropertyEnumerator1Base : public EnumeratedPropertyBase<PropertyType> {
+  using BaseType = EnumeratedPropertyBase<PropertyType>;
+
  public:
   PropertyEnumerator1Base() = default;
+
+  explicit PropertyEnumerator1Base(std::span<PropertyType> properties)
+      : BaseType{std::move(properties)} {}
 
   explicit PropertyEnumerator1Base(Parameter1Type param1)
       : param1_{std::move(param1)} {
@@ -310,8 +354,13 @@ template <typename Parameter1Type,  //
           typename PropertyType,    //
           auto Enumerate2>
 class PropertyEnumerator2Base : public EnumeratedPropertyBase<PropertyType> {
+  using BaseType = EnumeratedPropertyBase<PropertyType>;
+
  public:
   PropertyEnumerator2Base() = default;
+
+  explicit PropertyEnumerator2Base(std::span<PropertyType> properties)
+      : BaseType{std::move(properties)} {}
 
   explicit PropertyEnumerator2Base(Parameter1Type param1, Parameter2Type param2)
       : param1_{std::move(param1)},  //
@@ -400,7 +449,7 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceQueueFamilyProperties,  //
 DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceSurfaceFormats,  //
                                PhysicalDeviceSurfaceFormatsBase);
 
-DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDevicePresentModes,  //
+DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceSurfacePresentModes,  //
                                PhysicalDeviceSurfacePresentModesBase);
 
 DERIVE_FINAL_WITH_CONSTRUCTORS(SwapchainImages,  //
