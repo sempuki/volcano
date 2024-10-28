@@ -58,31 +58,29 @@ int main() {
       "hello-window", Window::Geometry{.width = 800, .height = 600}  //
   );
 
-  auto instance = application.CreateInstance(  //
-      {}, window->RequiredExtensions(), DebugLevel::VERBOSE);
-  auto surface = window->CreateSurface(instance.Handle());
-  auto device = instance.CreateDevice(surface);
+  auto instance = application.create_instance(  //
+      {}, window->required_extensions(), DebugLevel::VERBOSE);
+  auto surface = window->create_surface(instance);
+  auto device = instance.create_device(surface);
 
-  auto queue = device.CreateQueue();
-  auto render_pass = device.CreateRenderPass(VK_FORMAT_B8G8R8A8_UNORM);
-  auto vert_shader = device.CreateShaderModule(vertex_shader_spirv_bin);
-  auto frag_shader = device.CreateShaderModule(fragment_shader_spirv_bin);
-  auto pipeline_layout = device.CreatePipelineLayout();
-  auto buffer = device.CreateBuffer(vert_buffer_byte_count,
-                                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-  auto memory = device.AllocateDeviceMemory(
+  auto queue = device.create_queue();
+  auto render_pass = device.create_render_pass(VK_FORMAT_B8G8R8A8_UNORM);
+  auto vert_shader = device.create_shader_module(vertex_shader_spirv_bin);
+  auto frag_shader = device.create_shader_module(fragment_shader_spirv_bin);
+  auto pipeline_layout = device.create_pipeline_layout();
+  auto buffer = device.create_buffer(vert_buffer_byte_count,
+                                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+  auto memory = device.allocate_device_memory(
       buffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  memory.CopyInitialize(vert_buffer_bytes);
-  auto command_pool = device.CreateCommandPool(queue.FamilyIndex());
-  auto swapchain = device.CreateSwapchain(VK_FORMAT_B8G8R8A8_UNORM,
-                                          VK_PRESENT_MODE_FIFO_KHR);
-  // auto swapchain_image_views =
-  //     device.CreateImageViews(swapchain.Images(), VK_FORMAT_B8G8R8A8_UNORM);
+  memory.copy_initialize(vert_buffer_bytes);
+  auto command_pool = device.create_command_pool(queue.family_index());
+  auto swapchain = device.create_swapchain(VK_FORMAT_B8G8R8A8_UNORM,
+                                           VK_PRESENT_MODE_FIFO_KHR);
+  auto swapchain_image_views =
+      device.create_image_views(swapchain.Images(), VK_FORMAT_B8G8R8A8_UNORM);
 
-  window->SetRenderer(device.CreateSurfaceRenderer());
-  window->Show();
-
-  ::vkDestroySurfaceKHR(instance.Handle(), surface, nullptr);
+  window->set_renderer(device.create_surface_renderer());
+  window->show();
 }

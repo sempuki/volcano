@@ -6,6 +6,10 @@
 
 #include "lib/base.hpp"
 
+#include <vulkan/vulkan.h>
+
+static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
+
 namespace volcano::vk {
 
 //------------------------------------------------------------------------------
@@ -127,6 +131,7 @@ class SwapchainCreateInfo final           //
 
 //------------------------------------------------------------------------------
 
+namespace impl {
 template <typename PropertyType>
 class QueriedPropertyBase {
  public:
@@ -208,36 +213,37 @@ class PropertyQuerier2Base : public QueriedPropertyBase<PropertyType> {
   Parameter1Type param1_;
   Parameter2Type param2_;
 };
+}  // namespace impl
 
 //------------------------------------------------------------------------------
 
 using MemoryRequirementsBase =   //
-    PropertyQuerier2Base<        //
+    impl::PropertyQuerier2Base<  //
         ::VkDevice,              //
         ::VkBuffer,              //
         ::VkMemoryRequirements,  //
         ::vkGetBufferMemoryRequirements>;
 
 using PhysicalDevicePropertiesBase =   //
-    PropertyQuerier1Base<              //
+    impl::PropertyQuerier1Base<        //
         ::VkPhysicalDevice,            //
         ::VkPhysicalDeviceProperties,  //
         ::vkGetPhysicalDeviceProperties>;
 
 using PhysicalDeviceMemoryPropertiesBase =   //
-    PropertyQuerier1Base<                    //
+    impl::PropertyQuerier1Base<              //
         ::VkPhysicalDevice,                  //
         ::VkPhysicalDeviceMemoryProperties,  //
         ::vkGetPhysicalDeviceMemoryProperties>;
 
 using PhysicalDeviceFeaturesBase =   //
-    PropertyQuerier1Base<            //
+    impl::PropertyQuerier1Base<      //
         ::VkPhysicalDevice,          //
         ::VkPhysicalDeviceFeatures,  //
         ::vkGetPhysicalDeviceFeatures>;
 
 using PhysicalDeviceSurfaceCapabilitiesBase =  //
-    PropertyQuerier2Base<                      //
+    impl::PropertyQuerier2Base<                //
         ::VkPhysicalDevice,                    //
         ::VkSurfaceKHR,                        //
         ::VkSurfaceCapabilitiesKHR,            //
@@ -262,14 +268,15 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceSurfaceCapabilities,  //
 
 //------------------------------------------------------------------------------
 
+namespace impl {
 template <typename EnumeratorType, typename PropertyType>
-inline void MaybeEnumerateProperties(
+inline void maybe_enumerate_properties(
     EnumeratorType&& enumerate, InOut<std::vector<PropertyType>> properties) {
   std::uint32_t count = 0;
   std::vector<PropertyType> current;
 
   // Gather the required array size.
-  InvokeWithContinuation(
+  invoke_with_continuation(
       Overloaded(
           [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
           []() {}),
@@ -278,7 +285,7 @@ inline void MaybeEnumerateProperties(
 
   // Gather the enumerated properties.
   if (count) {
-    InvokeWithContinuation(
+    invoke_with_continuation(
         Overloaded(
             [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
             []() {}),
@@ -322,7 +329,7 @@ class PropertyEnumerator0Base : public EnumeratedPropertyBase<PropertyType> {
       : BaseType{std::move(properties)} {}
 
   PropertyEnumerator0Base() {
-    MaybeEnumerateProperties(  //
+    maybe_enumerate_properties(  //
         Enumerate0, InOut(this->properties_));
   }
 };
@@ -341,7 +348,7 @@ class PropertyEnumerator1Base : public EnumeratedPropertyBase<PropertyType> {
 
   explicit PropertyEnumerator1Base(Parameter1Type param1)
       : param1_{std::move(param1)} {
-    MaybeEnumerateProperties(  //
+    maybe_enumerate_properties(  //
         std::bind_front(Enumerate1, param1_), InOut(this->properties_));
   }
 
@@ -365,7 +372,7 @@ class PropertyEnumerator2Base : public EnumeratedPropertyBase<PropertyType> {
   explicit PropertyEnumerator2Base(Parameter1Type param1, Parameter2Type param2)
       : param1_{std::move(param1)},  //
         param2_{std::move(param2)} {
-    MaybeEnumerateProperties(  //
+    maybe_enumerate_properties(  //
         std::bind_front(Enumerate2, param1_, param2_),
         InOut(this->properties_));
   }
@@ -374,60 +381,61 @@ class PropertyEnumerator2Base : public EnumeratedPropertyBase<PropertyType> {
   Parameter1Type param1_;
   Parameter2Type param2_;
 };
+}  // namespace impl
 
 //------------------------------------------------------------------------------
 
 using LayerName = const char*;
 
 using InstanceLayerPropertiesBase =  //
-    PropertyEnumerator0Base<         //
+    impl::PropertyEnumerator0Base<   //
         ::VkLayerProperties,         //
         ::vkEnumerateInstanceLayerProperties>;
 
 using InstanceExtensionPropertiesBase =  //
-    PropertyEnumerator1Base<             //
+    impl::PropertyEnumerator1Base<       //
         LayerName,                       //
         ::VkExtensionProperties,         //
         ::vkEnumerateInstanceExtensionProperties>;
 
-using PhysicalDevicesBase =   //
-    PropertyEnumerator1Base<  //
-        ::VkInstance,         //
-        ::VkPhysicalDevice,   //
+using PhysicalDevicesBase =         //
+    impl::PropertyEnumerator1Base<  //
+        ::VkInstance,               //
+        ::VkPhysicalDevice,         //
         ::vkEnumeratePhysicalDevices>;
 
 using DeviceExtensionPropertiesBase =  //
-    PropertyEnumerator2Base<           //
+    impl::PropertyEnumerator2Base<     //
         ::VkPhysicalDevice,            //
         LayerName,                     //
         ::VkExtensionProperties,       //
         ::vkEnumerateDeviceExtensionProperties>;
 
 using PhysicalDeviceQueueFamilyPropertiesBase =  //
-    PropertyEnumerator1Base<                     //
+    impl::PropertyEnumerator1Base<               //
         ::VkPhysicalDevice,                      //
         ::VkQueueFamilyProperties,               //
         ::vkGetPhysicalDeviceQueueFamilyProperties>;
 
 using PhysicalDeviceSurfaceFormatsBase =  //
-    PropertyEnumerator2Base<              //
+    impl::PropertyEnumerator2Base<        //
         ::VkPhysicalDevice,               //
         ::VkSurfaceKHR,                   //
         ::VkSurfaceFormatKHR,             //
         ::vkGetPhysicalDeviceSurfaceFormatsKHR>;
 
 using PhysicalDeviceSurfacePresentModesBase =  //
-    PropertyEnumerator2Base<                   //
+    impl::PropertyEnumerator2Base<             //
         ::VkPhysicalDevice,                    //
         ::VkSurfaceKHR,                        //
         ::VkPresentModeKHR,                    //
         ::vkGetPhysicalDeviceSurfacePresentModesKHR>;
 
-using SwapchainImagesBase =   //
-    PropertyEnumerator2Base<  //
-        ::VkDevice,           //
-        ::VkSwapchainKHR,     //
-        ::VkImage,            //
+using SwapchainImagesBase =         //
+    impl::PropertyEnumerator2Base<  //
+        ::VkDevice,                 //
+        ::VkSwapchainKHR,           //
+        ::VkImage,                  //
         ::vkGetSwapchainImagesKHR>;
 
 //------------------------------------------------------------------------------
@@ -456,7 +464,7 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(SwapchainImages,  //
                                SwapchainImagesBase);
 
 //------------------------------------------------------------------------------
-
+namespace impl {
 template <typename HandleType,                   //
           typename HandleCreateInfoType,         //
           typename HandleCreateInfoAdapterType,  //
@@ -486,6 +494,8 @@ class HandleBase {
     }
     return *this;
   }
+
+  explicit HandleBase(HandleType handle) : handle_{handle} {}
 
   explicit HandleBase(const HandleCreateInfoType& info) : info_{info} {
     ::VkResult result =
@@ -542,6 +552,9 @@ class ParentedHandleBase {
     return *this;
   }
 
+  explicit ParentedHandleBase(ParentType parent, HandleType handle)
+      : parent_{parent}, handle_{handle} {}
+
   explicit ParentedHandleBase(ParentType parent,
                               const HandleCreateInfoType& info)
       : parent_{parent}, info_{info} {
@@ -567,11 +580,12 @@ class ParentedHandleBase {
   HandleType handle_ = VK_NULL_HANDLE;
   HandleCreateInfoAdapterType info_;
 };
+}  // namespace impl
 
 //------------------------------------------------------------------------------
 
 using InstanceBase =             //
-    HandleBase<                  //
+    impl::HandleBase<            //
         ::VkInstance,            //
         ::VkInstanceCreateInfo,  //
         InstanceCreateInfo,      //
@@ -579,23 +593,23 @@ using InstanceBase =             //
         ::vkDestroyInstance>;
 
 namespace impl {
-inline void DestroyDeviceAdapter(::VkPhysicalDevice _, ::VkDevice device,
-                                 const VkAllocationCallbacks* allocator) {
+inline void destroy_device_adapter(::VkPhysicalDevice _, ::VkDevice device,
+                                   const VkAllocationCallbacks* allocator) {
   ::vkDestroyDevice(device, allocator);
 }
 }  // namespace impl
 
 using DeviceBase =             //
-    ParentedHandleBase<        //
+    impl::ParentedHandleBase<  //
         ::VkPhysicalDevice,    //
         ::VkDevice,            //
         ::VkDeviceCreateInfo,  //
         DeviceCreateInfo,      //
         ::vkCreateDevice,      //
-        impl::DestroyDeviceAdapter>;
+        impl::destroy_device_adapter>;
 
 using BufferBase =             //
-    ParentedHandleBase<        //
+    impl::ParentedHandleBase<  //
         ::VkDevice,            //
         ::VkBuffer,            //
         ::VkBufferCreateInfo,  //
@@ -604,7 +618,7 @@ using BufferBase =             //
         ::vkDestroyBuffer>;
 
 using DeviceMemoryBase =         //
-    ParentedHandleBase<          //
+    impl::ParentedHandleBase<    //
         ::VkDevice,              //
         ::VkDeviceMemory,        //
         ::VkMemoryAllocateInfo,  //
@@ -624,30 +638,29 @@ struct QueueIndex final {
 };
 
 namespace impl {
-inline ::VkResult CreateDeviceQueueAdapter(::VkDevice device,               //
-                                           const QueueIndex* queue,         //
-                                           const VkAllocationCallbacks* _,  //
-                                           ::VkQueue* handle) {
+inline ::VkResult create_device_queue_adapter(
+    ::VkDevice device,               //
+    const QueueIndex* queue,         //
+    const VkAllocationCallbacks* _,  //
+    ::VkQueue* handle) {
   ::vkGetDeviceQueue(device, queue->family_index, queue->index, handle);
   return VK_SUCCESS;
 }
-inline void DestroyDeviceQueueAdapter(::VkDevice _1, ::VkQueue _2,
-                                      const VkAllocationCallbacks* _3) {}
+inline void destroy_device_queue_adapter(::VkDevice _1, ::VkQueue _2,
+                                         const VkAllocationCallbacks* _3) {}
 }  // namespace impl
 
-using QueueBase =                        //
-    ParentedHandleBase<                  //
-        ::VkDevice,                      //
-        ::VkQueue,                       //
-        QueueIndex,                      //
-        QueueIndex,                      //
-        impl::CreateDeviceQueueAdapter,  //
-        impl::DestroyDeviceQueueAdapter>;
-
-//------------------------------------------------------------------------------
+using QueueBase =                           //
+    impl::ParentedHandleBase<               //
+        ::VkDevice,                         //
+        ::VkQueue,                          //
+        QueueIndex,                         //
+        QueueIndex,                         //
+        impl::create_device_queue_adapter,  //
+        impl::destroy_device_queue_adapter>;
 
 using CommandPoolBase =             //
-    ParentedHandleBase<             //
+    impl::ParentedHandleBase<       //
         ::VkDevice,                 //
         ::VkCommandPool,            //
         ::VkCommandPoolCreateInfo,  //
@@ -656,7 +669,7 @@ using CommandPoolBase =             //
         ::vkDestroyCommandPool>;
 
 using ImageViewBase =             //
-    ParentedHandleBase<           //
+    impl::ParentedHandleBase<     //
         ::VkDevice,               //
         ::VkImageView,            //
         ::VkImageViewCreateInfo,  //
@@ -665,7 +678,7 @@ using ImageViewBase =             //
         ::vkDestroyImageView>;
 
 using RenderPassBase =             //
-    ParentedHandleBase<            //
+    impl::ParentedHandleBase<      //
         ::VkDevice,                //
         ::VkRenderPass,            //
         ::VkRenderPassCreateInfo,  //
@@ -674,7 +687,7 @@ using RenderPassBase =             //
         ::vkDestroyRenderPass>;
 
 using PipelineLayoutBase =             //
-    ParentedHandleBase<                //
+    impl::ParentedHandleBase<          //
         ::VkDevice,                    //
         ::VkPipelineLayout,            //
         ::VkPipelineLayoutCreateInfo,  //
@@ -683,7 +696,7 @@ using PipelineLayoutBase =             //
         ::vkDestroyPipelineLayout>;
 
 using ShaderModuleBase =             //
-    ParentedHandleBase<              //
+    impl::ParentedHandleBase<        //
         ::VkDevice,                  //
         ::VkShaderModule,            //
         ::VkShaderModuleCreateInfo,  //
@@ -692,7 +705,7 @@ using ShaderModuleBase =             //
         ::vkDestroyShaderModule>;
 
 using SwapchainBase =                //
-    ParentedHandleBase<              //
+    impl::ParentedHandleBase<        //
         ::VkDevice,                  //
         ::VkSwapchainKHR,            //
         ::VkSwapchainCreateInfoKHR,  //
@@ -700,11 +713,31 @@ using SwapchainBase =                //
         ::vkCreateSwapchainKHR,      //
         ::vkDestroySwapchainKHR>;
 
+namespace impl {
+inline ::VkResult create_surface_adapter(::VkInstance _1,                  //
+                                         const Empty* _2,                  //
+                                         const VkAllocationCallbacks* _3,  //
+                                         ::VkSurfaceKHR* _4) {
+  CHECK_UNREACHABLE();
+  return VK_SUCCESS;
+}
+}  // namespace impl
+
+using SurfaceBase =                    //
+    impl::ParentedHandleBase<          //
+        ::VkInstance,                  //
+        ::VkSurfaceKHR,                //
+        Empty,                         //
+        Empty,                         //
+        impl::create_surface_adapter,  //
+        ::vkDestroySurfaceKHR>;
+
 //------------------------------------------------------------------------------
 
 DERIVE_FINAL_WITH_CONSTRUCTORS(Instance, InstanceBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Device, DeviceBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Buffer, BufferBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(Queue, QueueBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(DeviceMemory, DeviceMemoryBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(CommandPool, CommandPoolBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(ImageView, ImageViewBase);
@@ -712,34 +745,35 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(RenderPass, RenderPassBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(PipelineLayout, PipelineLayoutBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(ShaderModule, ShaderModuleBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Swapchain, SwapchainBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(Surface, SurfaceBase);
 
 //------------------------------------------------------------------------------
 
-inline bool HasAnyFlags(::VkFlags flags, ::VkFlags query) {
+inline bool has_any_flags(::VkFlags flags, ::VkFlags query) {
   return (flags & query);
 }
 
-inline bool HasAllFlags(::VkFlags flags, ::VkFlags query) {
+inline bool has_all_flags(::VkFlags flags, ::VkFlags query) {
   return (flags & query) == query;
 }
 
 template <typename EnumerationType>
-inline EnumerationType FindFirstFlag(::VkFlags flags,
-                                     std::vector<EnumerationType> query,
-                                     EnumerationType otherwise) {
+inline EnumerationType find_first_flag(::VkFlags flags,
+                                       std::vector<EnumerationType> query,
+                                       EnumerationType otherwise) {
   auto iter = std::find_if(query.begin(), query.end(),
                            [flags](auto _) { return flags & _; });
   return iter != query.end() ? *iter : otherwise;
 }
 
-inline bool HasStringName(const std::vector<const char*>& names,
-                          std::string_view target) {
+inline bool has_string_name(const std::vector<const char*>& names,
+                            std::string_view target) {
   return std::any_of(names.begin(), names.end(), [target](const char* name) {
     return static_cast<std::string_view>(name) == target;
   });
 }
 
-inline bool HasLayerProperty(                              //
+inline bool has_layer_property(                            //
     const std::span<::VkLayerProperties>& properties,      //
     std::string_view layer_name) {                         //
   return std::any_of(                                      //
@@ -749,7 +783,7 @@ inline bool HasLayerProperty(                              //
       });
 }
 
-inline bool HasExtensionProperty(                                  //
+inline bool has_extension_property(                                //
     const std::span<::VkExtensionProperties>& properties,          //
     std::string_view extension_name) {                             //
   return std::any_of(                                              //
@@ -761,8 +795,8 @@ inline bool HasExtensionProperty(                                  //
 }
 
 template <typename TargetFunctionPointer>
-inline void LoadInstanceFunction(const char* name, ::VkInstance instance,
-                                 Out<TargetFunctionPointer> target) {
+inline void load_instance_function(const char* name, ::VkInstance instance,
+                                   Out<TargetFunctionPointer> target) {
   CHECK_PRECONDITION(instance != VK_NULL_HANDLE);
   CHECK_PRECONDITION(name != nullptr);
   *target = reinterpret_cast<TargetFunctionPointer>(
@@ -810,9 +844,9 @@ class DebugMessenger final {
       : instance_{instance} {
     CHECK_PRECONDITION(instance_ != VK_NULL_HANDLE);
 
-    vk::LoadInstanceFunction(CREATE_FUNCTION_NAME, instance_, Out(create_));
-    vk::LoadInstanceFunction(DESTROY_FUNCTION_NAME, instance_, Out(destroy_));
-    vk::LoadInstanceFunction(SUBMIT_FUNCTION_NAME, instance_, Out(submit_));
+    vk::load_instance_function(CREATE_FUNCTION_NAME, instance_, Out(create_));
+    vk::load_instance_function(DESTROY_FUNCTION_NAME, instance_, Out(destroy_));
+    vk::load_instance_function(SUBMIT_FUNCTION_NAME, instance_, Out(submit_));
 
     ::VkResult result = create_(instance_, std::addressof(create_info),
                                 ALLOCATOR, std::addressof(handle_));
@@ -841,7 +875,7 @@ class DebugMessenger final {
 
 //------------------------------------------------------------------------------
 
-inline std::string_view ConvertToString(
+inline std::string_view convert_to_string(
     ::VkDebugUtilsMessageSeverityFlagBitsEXT _) {
   switch (_) {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
@@ -859,7 +893,7 @@ inline std::string_view ConvertToString(
   return {};
 }
 
-inline std::string_view ConvertToString(::VkPhysicalDeviceType _) {
+inline std::string_view convert_to_string(::VkPhysicalDeviceType _) {
   switch (_) {
     case VK_PHYSICAL_DEVICE_TYPE_OTHER:
       return "VK_PHYSICAL_DEVICE_TYPE_OTHER";
@@ -878,7 +912,7 @@ inline std::string_view ConvertToString(::VkPhysicalDeviceType _) {
   return {};
 }
 
-inline std::string_view ConvertToString(::VkQueueFlagBits _) {
+inline std::string_view convert_to_string(::VkQueueFlagBits _) {
   switch (_) {
     case VK_QUEUE_GRAPHICS_BIT:
       return "VK_QUEUE_GRAPHICS_BIT";
@@ -901,21 +935,21 @@ inline std::string_view ConvertToString(::VkQueueFlagBits _) {
   return {};
 }
 
-inline std::string ConvertToString(::VkQueueFlags flags) {
+inline std::string convert_to_string(::VkQueueFlags flags) {
   std::stringstream stream;
   for (auto bit :
        {VK_QUEUE_GRAPHICS_BIT, VK_QUEUE_COMPUTE_BIT, VK_QUEUE_TRANSFER_BIT,
         VK_QUEUE_SPARSE_BINDING_BIT, VK_QUEUE_PROTECTED_BIT,
         VK_QUEUE_VIDEO_DECODE_BIT_KHR, VK_QUEUE_VIDEO_ENCODE_BIT_KHR}) {
     if (flags & bit) {
-      stream << ConvertToString(static_cast<::VkQueueFlagBits>(flags & bit))
+      stream << convert_to_string(static_cast<::VkQueueFlagBits>(flags & bit))
              << ", ";
     }
   }
   return std::move(stream).str();
 }
 
-inline std::string_view ConvertToString(::VkFormat _) {
+inline std::string_view convert_to_string(::VkFormat _) {
   switch (_) {
     case VK_FORMAT_UNDEFINED:
       return "VK_FORMAT_UNDEFINED";
@@ -1402,7 +1436,7 @@ inline std::string_view ConvertToString(::VkFormat _) {
   return {};
 }
 
-inline std::string_view ConvertToString(::VkPresentModeKHR _) {
+inline std::string_view convert_to_string(::VkPresentModeKHR _) {
   switch (_) {
     case VK_PRESENT_MODE_IMMEDIATE_KHR:
       return "VK_PRESENT_MODE_IMMEDIATE_KHR";

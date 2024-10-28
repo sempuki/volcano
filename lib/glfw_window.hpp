@@ -5,6 +5,7 @@
 #include "lib/base.hpp"
 #include "lib/render.hpp"
 #include "lib/window.hpp"
+#include "vk/resource.hpp"
 
 // NOTE: Do not include OpenGL headers.
 #define GLFW_INCLUDE_NONE
@@ -24,29 +25,29 @@ class StaticState final {
   StaticState() = default;
   ~StaticState() = default;
 
-  static StaticState& Instance() {
+  static StaticState& instance() {
     static StaticState instance_;
     return instance_;
   }
 
-  bool Link(::GLFWwindow* glfw_window, PlatformWindow* platform_window) {
+  bool link(::GLFWwindow* glfw_window, PlatformWindow* platform_window) {
     return map_.try_emplace(glfw_window, platform_window).second;
   }
 
-  PlatformWindow* Find(::GLFWwindow* glfw_window) const {
+  PlatformWindow* find(::GLFWwindow* glfw_window) const {
     auto iter = map_.find(glfw_window);
     return iter != map_.end() ? iter->second : nullptr;
   }
 
-  void RaiseError(int code, const char* description) {
+  void raise_error(int code, const char* description) {
     pending_errors_.push_back({
         .code = code,               //
         .description = description  //
     });
   }
 
-  bool HasPendingErrors() const { return pending_errors_.size(); }
-  void DumpPendingErrors() const {
+  bool has_pending_errors() const { return pending_errors_.size(); }
+  void dump_pending_errors() const {
     for (auto&& error : pending_errors_) {
       std::print("[ERROR] <GLFW> {}: {}\n", error.description, error.code);
     }
@@ -68,7 +69,7 @@ class StaticInitialization final {
   DECLARE_MOVE_DELETE(StaticInitialization);
 
   StaticInitialization() {
-    ::glfwSetErrorCallback(ErrorCallback);
+    ::glfwSetErrorCallback(error_callback);
     initialized_ = ::glfwInit() == GLFW_TRUE &&  //
                    ::glfwVulkanSupported() == GLFW_TRUE;
     CHECK_POSTCONDITION(initialized_);
@@ -79,9 +80,9 @@ class StaticInitialization final {
     ::glfwTerminate();
   }
 
-  bool IsInitialized() const { return initialized_; }
+  bool is_initialized() const { return initialized_; }
 
-  static StaticInitialization& Instance() {
+  static StaticInitialization& instance() {
     static StaticInitialization instance_;
     return instance_;
   }
@@ -89,8 +90,8 @@ class StaticInitialization final {
  private:
   bool initialized_ = false;
 
-  static void ErrorCallback(int code, const char* description) {
-    StaticState::Instance().RaiseError(code, description);
+  static void error_callback(int code, const char* description) {
+    StaticState::instance().raise_error(code, description);
   }
 };
 
@@ -112,7 +113,7 @@ class PlatformWindow final : public Window {
 
   explicit PlatformWindow(std::string_view title, Window::Geometry geometry)
       : BaseType{title, geometry} {
-    CHECK_PRECONDITION(impl::StaticInitialization::Instance().IsInitialized());
+    CHECK_PRECONDITION(impl::StaticInitialization::instance().is_initialized());
 
     ::glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     ::glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
@@ -122,23 +123,23 @@ class PlatformWindow final : public Window {
                                       title_.c_str(), nullptr, nullptr);
     CHECK_POSTCONDITION(glfw_window_);
 
-    bool inserted = impl::StaticState::Instance().Link(glfw_window_, this);
+    bool inserted = impl::StaticState::instance().link(glfw_window_, this);
     CHECK_INVARIANT(inserted);
 
     ::glfwSetInputMode(glfw_window_, GLFW_STICKY_KEYS, GLFW_TRUE);
-    ::glfwSetFramebufferSizeCallback(glfw_window_, FrameBufferSizeCallback);
-    ::glfwSetWindowRefreshCallback(glfw_window_, WindowRefreshCallback);
-    ::glfwSetKeyCallback(glfw_window_, KeyCallback);
+    ::glfwSetFramebufferSizeCallback(glfw_window_, frame_buffer_size_callback);
+    ::glfwSetWindowRefreshCallback(glfw_window_, window_refresh_callback);
+    ::glfwSetKeyCallback(glfw_window_, key_callback);
   }
 
-  std::span<const char*> RequiredExtensions() const override {
+  std::span<const char*> required_extensions() const override {
     std::uint32_t count = 0;
     const char** extensions =
         ::glfwGetRequiredInstanceExtensions(std::addressof(count));
     return {extensions, count};
   }
 
-  ::VkSurfaceKHR CreateSurface(::VkInstance instance) override {
+  ::VkSurfaceKHR create_surface(::VkInstance instance) override {
     CHECK_PRECONDITION(instance != VK_NULL_HANDLE);
     CHECK_INVARIANT(glfw_window_);
 
@@ -151,51 +152,51 @@ class PlatformWindow final : public Window {
     return surface;
   }
 
-  void Show() override {
+  void show() override {
     ::glfwShowWindow(glfw_window_);
 
-    while (!impl::StaticState::Instance().HasPendingErrors() &&
+    while (!impl::StaticState::instance().has_pending_errors() &&
            !::glfwWindowShouldClose(glfw_window_)) {
-      if (GetRenderer().HasSwapchain()) {
+      if (renderer().HasSwapchain()) {
         ::glfwPollEvents();  // do not block so I can paint
       } else {
         ::glfwWaitEvents();  // allows blocking if no events
       }
 
-      if (GetRenderer().HasSwapchain()) {
-        GetRenderer().Render();
+      if (renderer().HasSwapchain()) {
+        renderer().Render();
       }
     }
 
-    impl::StaticState::Instance().DumpPendingErrors();
+    impl::StaticState::instance().dump_pending_errors();
   }
 
  private:
   ::GLFWwindow* glfw_window_ = nullptr;
 
-  static void FrameBufferSizeCallback(  //
-      ::GLFWwindow* window,             //
+  static void frame_buffer_size_callback(  //
+      ::GLFWwindow* window,                //
       int width, int height) {
     PlatformWindow* platform_window =
-        impl::StaticState::Instance().Find(window);
+        impl::StaticState::instance().find(window);
     CHECK_INVARIANT(platform_window);
 
     CHECK_PRECONDITION(width > 0 && height > 0)
-    platform_window->GetRenderer().RecreateSwapchain(
+    platform_window->renderer().RecreateSwapchain(
         {.width = static_cast<std::uint32_t>(width),
          .height = static_cast<std::uint32_t>(height)});
   }
 
-  static void WindowRefreshCallback(  //
+  static void window_refresh_callback(  //
       ::GLFWwindow* window) {
     PlatformWindow* platform_window =
-        impl::StaticState::Instance().Find(window);
+        impl::StaticState::instance().find(window);
 
     CHECK_INVARIANT(platform_window);
-    platform_window->GetRenderer().Render();
+    platform_window->renderer().Render();
   }
 
-  static void KeyCallback(   //
+  static void key_callback(  //
       ::GLFWwindow* window,  //
       int key, int scancode, int action, int mods) {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {

@@ -10,6 +10,9 @@ cc_library(
     deps = [
         "//lib:base",
     ],
+    linkopts = [
+        "-lvulkan",
+    ],
 )
 
 cc_test(

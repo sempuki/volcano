@@ -43,21 +43,20 @@ class Queue final {
   Queue() = delete;
   ~Queue() = default;
 
-  std::uint32_t FamilyIndex() const { return queue_family_index_; }
+  std::uint32_t family_index() const { return index_.family_index; }
 
  private:
-  ::VkQueue queue_ = VK_NULL_HANDLE;
-  std::uint32_t queue_family_index_ = std::numeric_limits<std::uint32_t>::max();
+  vk::Queue queue_;
+  vk::QueueIndex index_;
 
   friend class Device;
 
   explicit Queue(::VkDevice device,                 //
                  std::uint32_t queue_family_index,  //
-                 std::uint32_t queue_index)
-      : queue_family_index_{queue_family_index} {
+                 std::uint32_t queue_index) {
     CHECK_PRECONDITION(device != VK_NULL_HANDLE);
-    ::vkGetDeviceQueue(device, queue_family_index, queue_index,
-                       std::addressof(queue_));
+    index_ = vk::QueueIndex{queue_family_index, queue_index};
+    queue_ = vk::Queue{device, index_};
   }
 };
 
@@ -75,17 +74,15 @@ class Buffer final {
 
   explicit Buffer(::VkDevice device,          //
                   ::VkDeviceSize byte_count,  //
-                  ::VkBufferUsageFlags buffer_usage)
-      : device_{device} {
-    buffer_ = vk::Buffer{device_, ::VkBufferCreateInfo{
-                                      .size = byte_count,
-                                      .usage = buffer_usage,
-                                      .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-                                  }};
-    memory_requirements_ = vk::MemoryRequirements{device_, buffer_};
+                  ::VkBufferUsageFlags buffer_usage) {
+    buffer_ = vk::Buffer{device, ::VkBufferCreateInfo{
+                                     .size = byte_count,
+                                     .usage = buffer_usage,
+                                     .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+                                 }};
+    memory_requirements_ = vk::MemoryRequirements{device, buffer_};
   }
 
-  ::VkDevice device_ = VK_NULL_HANDLE;
   vk::Buffer buffer_;
   vk::MemoryRequirements memory_requirements_;
 };
@@ -99,12 +96,13 @@ class DeviceMemory final {
   DeviceMemory() = delete;
   ~DeviceMemory() = default;
 
-  void CopyInitialize(std::span<const std::byte> data) {
+  void copy_initialize(std::span<const std::byte> data) {
     CHECK_PRECONDITION(data.size() <= memory_.info().allocationSize);
     CHECK_PRECONDITION(host_bytes_);
 
     std::copy(data.begin(), data.end(), host_bytes_);
-    ::vkUnmapMemory(device_, memory_);
+    ::VkDevice device = memory_.parent();
+    ::vkUnmapMemory(device, memory_);
 
     host_bytes_ = nullptr;
   }
@@ -116,28 +114,26 @@ class DeviceMemory final {
                         ::VkDeviceSize required_byte_offset,  //
                         ::VkDeviceSize required_byte_count,   //
                         std::uint32_t memory_type_index,      //
-                        ::VkBuffer target_buffer)
-      : device_{device} {
+                        ::VkBuffer target_buffer) {
     memory_ =
-        vk::DeviceMemory{device_, ::VkMemoryAllocateInfo{
-                                      .allocationSize = required_byte_count,
-                                      .memoryTypeIndex = memory_type_index,
-                                  }};
+        vk::DeviceMemory{device, ::VkMemoryAllocateInfo{
+                                     .allocationSize = required_byte_count,
+                                     .memoryTypeIndex = memory_type_index,
+                                 }};
 
-    ::VkResult result = ::vkBindBufferMemory(device_, target_buffer, memory_,
+    ::VkResult result = ::vkBindBufferMemory(device, target_buffer, memory_,
                                              required_byte_offset);
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
     void* host_pointer = nullptr;
     ::VkMemoryMapFlags flags = 0;
-    result = ::vkMapMemory(device_, memory_, required_byte_offset,
-                           VK_WHOLE_SIZE, flags, std::addressof(host_pointer));
+    result = ::vkMapMemory(device, memory_, required_byte_offset, VK_WHOLE_SIZE,
+                           flags, std::addressof(host_pointer));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
 
     host_bytes_ = reinterpret_cast<std::byte*>(host_pointer);
   }
 
-  ::VkDevice device_ = VK_NULL_HANDLE;
   vk::DeviceMemory memory_;
   std::byte* host_bytes_ = nullptr;
 };
@@ -154,14 +150,12 @@ class CommandPool final {
  private:
   friend class Device;
 
-  explicit CommandPool(::VkDevice device, std::uint32_t queue_family_index)
-      : device_{device} {
+  explicit CommandPool(::VkDevice device, std::uint32_t queue_family_index) {
     command_pool_ = vk::CommandPool{
-        device_,
+        device,
         ::VkCommandPoolCreateInfo{.queueFamilyIndex = queue_family_index}};
   }
 
-  ::VkDevice device_ = VK_NULL_HANDLE;
   vk::CommandPool command_pool_;
 };
 
@@ -177,8 +171,7 @@ class ImageView final {
  private:
   friend class Device;
 
-  explicit ImageView(::VkDevice device, ::VkImage image, ::VkFormat format)
-      : device_{device} {
+  explicit ImageView(::VkDevice device, ::VkImage image, ::VkFormat format) {
     ::VkImageViewCreateInfo create_info{};
 
     create_info.image = image;
@@ -194,10 +187,9 @@ class ImageView final {
     create_info.subresourceRange.baseArrayLayer = 0;
     create_info.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
-    image_view_ = vk::ImageView{device_, create_info};
+    image_view_ = vk::ImageView{device, create_info};
   }
 
-  ::VkDevice device_ = VK_NULL_HANDLE;
   vk::ImageView image_view_;
 };
 
@@ -213,9 +205,7 @@ class RenderPass final {
  private:
   friend class Device;
 
-  explicit RenderPass(::VkDevice device, ::VkFormat format) : device_{device} {
-    CHECK_PRECONDITION(device_ != VK_NULL_HANDLE);
-
+  explicit RenderPass(::VkDevice device, ::VkFormat format) {
     static std::array<::VkAttachmentDescription, 1>  //
         color_attachment{::VkAttachmentDescription{
             .samples = VK_SAMPLE_COUNT_1_BIT,                    //
@@ -270,17 +260,16 @@ class RenderPass final {
     color_attachment.front().format = format;
 
     render_pass_ = vk::RenderPass{
-        device_, ::VkRenderPassCreateInfo{
-                     .attachmentCount = color_attachment.size(),
-                     .pAttachments = color_attachment.data(),
-                     .subpassCount = subpass_description.size(),
-                     .pSubpasses = subpass_description.data(),
-                     .dependencyCount = subpass_dependencies.size(),
-                     .pDependencies = subpass_dependencies.data(),
-                 }};
+        device, ::VkRenderPassCreateInfo{
+                    .attachmentCount = color_attachment.size(),
+                    .pAttachments = color_attachment.data(),
+                    .subpassCount = subpass_description.size(),
+                    .pSubpasses = subpass_description.data(),
+                    .dependencyCount = subpass_dependencies.size(),
+                    .pDependencies = subpass_dependencies.data(),
+                }};
   }
 
-  ::VkDevice device_ = VK_NULL_HANDLE;
   vk::RenderPass render_pass_;
 };
 
@@ -296,12 +285,11 @@ class PipelineLayout final {
  private:
   friend class Device;
 
-  explicit PipelineLayout(::VkDevice device) : device_{device} {
+  explicit PipelineLayout(::VkDevice device) {
     pipeline_layout_ =
-        vk::PipelineLayout{device_, ::VkPipelineLayoutCreateInfo{}};
+        vk::PipelineLayout{device, ::VkPipelineLayoutCreateInfo{}};
   }
 
-  ::VkDevice device_ = VK_NULL_HANDLE;
   vk::PipelineLayout pipeline_layout_;
 };
 
@@ -318,17 +306,15 @@ class ShaderModule final {
   friend class Device;
 
   explicit ShaderModule(::VkDevice device,
-                        const std::vector<std::uint32_t>& shader_spirv_bin)
-      : device_{device} {
+                        const std::vector<std::uint32_t>& shader_spirv_bin) {
     ::VkShaderModuleCreateInfo create_info{};
     create_info.pCode = shader_spirv_bin.data();
     create_info.codeSize =
         shader_spirv_bin.size() * sizeof(std::uint32_t);  // Byte count.
 
-    shader_module_ = vk::ShaderModule{device_, create_info};
+    shader_module_ = vk::ShaderModule{device, create_info};
   }
 
-  ::VkDevice device_ = VK_NULL_HANDLE;
   vk::ShaderModule shader_module_;
 };
 
@@ -353,49 +339,48 @@ class Swapchain final {
                      const ::VkSurfaceFormatKHR& surface_format,              //
                      ::VkPresentModeKHR surface_present_mode,                 //
                      ::VkSwapchainKHR previous_swapchain)
-      : device_{device},
-        queue_families_{std::move(queue_families)},
+      : queue_families_{std::move(queue_families)},
         surface_{surface},
         surface_capabilities_{surface_capabilities},
         surface_format_{surface_format} {
     VkCompositeAlphaFlagBitsKHR composite_alpha =
-        vk::FindFirstFlag(surface_capabilities_.supportedCompositeAlpha,
-                          {VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-                           VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
-                           VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
-                           VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR},
-                          static_cast<::VkCompositeAlphaFlagBitsKHR>(-1));
+        vk::find_first_flag(surface_capabilities_.supportedCompositeAlpha,
+                            {VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+                             VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+                             VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+                             VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR},
+                            static_cast<::VkCompositeAlphaFlagBitsKHR>(-1));
     CHECK_INVARIANT(composite_alpha != -1);
 
     swapchain_ = vk::Swapchain{
-        device_, ::VkSwapchainCreateInfoKHR{
-                     .surface = surface_,
-                     .minImageCount = surface_capabilities_.minImageCount + 1,
-                     .imageFormat = surface_format_.format,
-                     .imageColorSpace = surface_format_.colorSpace,
-                     .imageExtent = surface_capabilities_.currentExtent,
-                     .imageArrayLayers = 1,  // Non-stereoscopic.
-                     .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                     .imageSharingMode = queue_families_.size() > 1
-                                             ? VK_SHARING_MODE_CONCURRENT
-                                             : VK_SHARING_MODE_EXCLUSIVE,
-                     .queueFamilyIndexCount = queue_families_.size(),
-                     .pQueueFamilyIndices = queue_families_.data(),
-                     .preTransform = surface_capabilities_.currentTransform,
-                     .compositeAlpha = composite_alpha,
-                     .presentMode = surface_present_mode,
-                     .clipped = VK_TRUE,
-                     .oldSwapchain = previous_swapchain,
-                 }};
+        device, ::VkSwapchainCreateInfoKHR{
+                    .surface = surface_,
+                    .minImageCount = surface_capabilities_.minImageCount + 1,
+                    .imageFormat = surface_format_.format,
+                    .imageColorSpace = surface_format_.colorSpace,
+                    .imageExtent = surface_capabilities_.currentExtent,
+                    .imageArrayLayers = 1,  // Non-stereoscopic.
+                    .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                    .imageSharingMode = queue_families_.size() > 1
+                                            ? VK_SHARING_MODE_CONCURRENT
+                                            : VK_SHARING_MODE_EXCLUSIVE,
+                    .queueFamilyIndexCount = queue_families_.size(),
+                    .pQueueFamilyIndices = queue_families_.data(),
+                    .preTransform = surface_capabilities_.currentTransform,
+                    .compositeAlpha = composite_alpha,
+                    .presentMode = surface_present_mode,
+                    .clipped = VK_TRUE,
+                    .oldSwapchain = previous_swapchain,
+                }};
 
-    swapchain_images_ = vk::SwapchainImages{device_, swapchain_};
+    swapchain_images_ = vk::SwapchainImages{device, swapchain_};
   }
 
-  ::VkDevice device_ = VK_NULL_HANDLE;
   vk::Swapchain swapchain_;
   vk::SwapchainImages swapchain_images_;
 
   std::vector<std::uint32_t> queue_families_;
+
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   ::VkSurfaceCapabilitiesKHR surface_capabilities_;
   ::VkSurfaceFormatKHR surface_format_;
@@ -410,13 +395,13 @@ class Device final {
   Device() = delete;
   ~Device() = default;
 
-  Queue CreateQueue() {
+  Queue create_queue() {
     CHECK_PRECONDITION(queue_families_.size() == 1);
     return Queue{device_, queue_families_.front(), 0u};
   }
 
-  Buffer CreateBuffer(::VkDeviceSize requested_byte_count,
-                      ::VkBufferUsageFlags requested_buffer_usage) {
+  Buffer create_buffer(::VkDeviceSize requested_byte_count,
+                       ::VkBufferUsageFlags requested_buffer_usage) {
     return Buffer{
         device_,
         requested_byte_count,
@@ -424,7 +409,7 @@ class Device final {
     };
   }
 
-  DeviceMemory AllocateDeviceMemory(
+  DeviceMemory allocate_device_memory(
       const Buffer& buffer, ::VkMemoryPropertyFlags required_memory_flags) {
     bool found = false;
 
@@ -434,10 +419,10 @@ class Device final {
          ++memory_type_index) {
       if ((buffer.memory_requirements_().memoryTypeBits &
            (1u << memory_type_index)) &&
-          vk::HasAllFlags(phys_device_memory_properties_()
-                              .memoryTypes[memory_type_index]
-                              .propertyFlags,
-                          required_memory_flags)) {
+          vk::has_all_flags(phys_device_memory_properties_()
+                                .memoryTypes[memory_type_index]
+                                .propertyFlags,
+                            required_memory_flags)) {
         found = true;
         break;
       }
@@ -450,11 +435,11 @@ class Device final {
                         buffer.buffer_};
   }
 
-  CommandPool CreateCommandPool(std::uint32_t queue_family_index) {
+  CommandPool create_command_pool(std::uint32_t queue_family_index) {
     return CommandPool{device_, queue_family_index};
   }
 
-  RenderPass CreateRenderPass(::VkFormat requested) {
+  RenderPass create_render_pass(::VkFormat requested) {
     CHECK_PRECONDITION(std::any_of(surface_formats_().begin(),
                                    surface_formats_().end(),
                                    [requested](::VkSurfaceFormatKHR supported) {
@@ -463,22 +448,22 @@ class Device final {
     return RenderPass{device_, requested};
   }
 
-  std::unique_ptr<SurfaceRenderer> CreateSurfaceRenderer() {
+  std::unique_ptr<SurfaceRenderer> create_surface_renderer() {
     return std::make_unique<SurfaceRenderer>(surface_,               //
                                              surface_capabilities_,  //
                                              surface_formats_);
   }
 
-  PipelineLayout CreatePipelineLayout() {
+  PipelineLayout create_pipeline_layout() {
     return PipelineLayout{device_};  //
   }
 
-  ShaderModule CreateShaderModule(
+  ShaderModule create_shader_module(
       const std::vector<std::uint32_t>& shader_spirv_bin) {
     return ShaderModule{device_, shader_spirv_bin};
   }
 
-  Swapchain CreateSwapchain(
+  Swapchain create_swapchain(
       ::VkFormat requested_format,              //
       ::VkPresentModeKHR surface_present_mode,  //
       ::VkSwapchainKHR previous_swapchain = VK_NULL_HANDLE) {
@@ -502,8 +487,8 @@ class Device final {
                      previous_swapchain};
   }
 
-  std::vector<ImageView> CreateImageViews(std::span<::VkImage> images,
-                                          ::VkFormat format) {
+  std::vector<ImageView> create_image_views(std::span<::VkImage> images,
+                                            ::VkFormat format) {
     std::vector<ImageView> result;
     for (auto&& image : images) {
       result.push_back(ImageView{device_, image, format});
@@ -515,14 +500,14 @@ class Device final {
   friend class Instance;
 
   explicit Device(
+      ::VkInstance instance,
       ::VkSurfaceKHR surface,                                       //
       ::VkPhysicalDevice phys_device,                               //
       const ::VkPhysicalDeviceFeatures& features,                   //
       const ::VkPhysicalDeviceMemoryProperties& memory_properties,  //
       std::vector<const char*> device_extensions,                   //
       std::vector<std::uint32_t> queue_families)
-      : surface_{surface},
-        phys_device_features_{features},
+      : phys_device_features_{features},
         phys_device_memory_properties_{memory_properties},
         device_extensions_{std::move(device_extensions)},
         queue_families_{std::move(queue_families)} {
@@ -546,25 +531,26 @@ class Device final {
                          .pEnabledFeatures = phys_device_features_.address(),
                      }};
 
-    surface_formats_ = vk::PhysicalDeviceSurfaceFormats{phys_device, surface_};
+    surface_ = vk::Surface{instance, surface};
+    surface_formats_ = vk::PhysicalDeviceSurfaceFormats{phys_device, surface};
     surface_present_modes_ =
-        vk::PhysicalDeviceSurfacePresentModes{phys_device, surface_};
+        vk::PhysicalDeviceSurfacePresentModes{phys_device, surface};
     surface_capabilities_ =
-        vk::PhysicalDeviceSurfaceCapabilities{phys_device, surface_};
+        vk::PhysicalDeviceSurfaceCapabilities{phys_device, surface};
 
     std::print("Surface Formats: \n");
     for (auto&& surface_format : surface_formats_()) {
-      std::print(" :: {}\n", vk::ConvertToString(surface_format.format));
+      std::print(" :: {}\n", vk::convert_to_string(surface_format.format));
     }
 
     std::print("Surface Present Modes: \n");
     for (auto&& surface_present_mode : surface_present_modes_()) {
-      std::print(" .. {}\n", vk::ConvertToString(surface_present_mode));
+      std::print(" .. {}\n", vk::convert_to_string(surface_present_mode));
     }
   }
 
   vk::Device device_;
-  ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
+  vk::Surface surface_;
 
   vk::PhysicalDeviceSurfaceFormats surface_formats_;
   vk::PhysicalDeviceSurfacePresentModes surface_present_modes_;
@@ -587,12 +573,12 @@ class Instance final {
   Instance() = delete;
   ~Instance() = default;
 
-  ::VkInstance Handle() const { return instance_; }
+  operator ::VkInstance() const { return instance_; }
 
-  Device CreateDevice(::VkSurfaceKHR surface) {
+  Device create_device(::VkSurfaceKHR surface) {
     CHECK_PRECONDITION(surface != VK_NULL_HANDLE);
 
-    std::vector<FindQueueFamilyResult> selected_result = SelectQueueFamilyIf(
+    std::vector<FindQueueFamilyResult> selected_result = select_queue_family_if(
         [surface](
             ::VkPhysicalDevice phys_device,
             const ::VkPhysicalDeviceProperties& phys_device_property,
@@ -618,7 +604,8 @@ class Instance final {
     std::uint32_t selected_queue_family_index =
         selected_result.front().queue_family_index;
 
-    return Device{surface,
+    return Device{instance_,
+                  surface,
                   selected_phys_device,
                   phys_device_features_[selected_phys_device],
                   phys_device_memory_properties_[selected_phys_device],
@@ -655,7 +642,7 @@ class Instance final {
 
     const bool use_debug =
         debug_level != DebugLevel::NONE &&
-        vk::HasStringName(instance_extensions_, impl::DEBUG_EXTENSION_NAME);
+        vk::has_string_name(instance_extensions_, impl::DEBUG_EXTENSION_NAME);
 
     if (use_debug) {
       create_info.pNext = debug_create_info_.address();
@@ -665,7 +652,7 @@ class Instance final {
           VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
           VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
           VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-      debug_create_info_().pfnUserCallback = DebugMessengerCallback;
+      debug_create_info_().pfnUserCallback = debug_messenger_callback;
     }
 
     instance_ = vk::Instance{create_info};
@@ -691,14 +678,14 @@ class Instance final {
 
       std::print(" ** {} [{}]\n",
                  phys_device_properties_[phys_device]().deviceName,
-                 vk::ConvertToString(
+                 vk::convert_to_string(
                      phys_device_properties_[phys_device]().deviceType));
 
       std::print("Queue Family Flags: \n");
       for (auto&& property :
            phys_device_queue_family_properties_[phys_device]()) {
         std::print(" .. [{}] {}\n", property.queueCount,
-                   vk::ConvertToString(property.queueFlags));
+                   vk::convert_to_string(property.queueFlags));
       }
 
       std::print("Supported Device Extensions: \n");
@@ -707,7 +694,7 @@ class Instance final {
         std::print(" -- {}\n", property.extensionName);
       }
 
-      CHECK_INVARIANT(vk::HasExtensionProperty(
+      CHECK_INVARIANT(vk::has_extension_property(
           supported_device_extension_properties_[phys_device],
           impl::SWAPCHAIN_EXTENSION_NAME));
     }
@@ -719,7 +706,7 @@ class Instance final {
   };
 
   template <typename PredicateType>
-  std::vector<FindQueueFamilyResult> SelectQueueFamilyIf(
+  std::vector<FindQueueFamilyResult> select_queue_family_if(
       PredicateType&& predicate) {
     std::vector<FindQueueFamilyResult> result;
 
@@ -748,7 +735,7 @@ class Instance final {
     return result;
   }
 
-  std::uint32_t SelectMemoryFromRequirements() {
+  std::uint32_t select_memory_from_requirements() {
     std::uint32_t device_memory_property_index = 0;
 
     return device_memory_property_index;
@@ -799,14 +786,14 @@ class Instance final {
     return {};
   }
 
-  static VKAPI_ATTR ::VkBool32 DebugMessengerCallback(
+  static VKAPI_ATTR ::VkBool32 debug_messenger_callback(
       ::VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
       ::VkDebugUtilsMessageTypeFlagsEXT message_type,
       const ::VkDebugUtilsMessengerCallbackDataEXT* data, void*) {
     CHECK_PRECONDITION(
         data->sType ==
         VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT);
-    std::print("[{}] <{}> {}\n", vk::ConvertToString(message_severity),
+    std::print("[{}] <{}> {}\n", vk::convert_to_string(message_severity),
                data->pMessageIdName, data->pMessage);
     // std::cout << "Queue Labels: \n";
     // for (std::uint32_t i = 0; i < data->queueLabelCount; ++i) {
@@ -856,20 +843,21 @@ class Application final {
     application_info_().apiVersion = VK_API_VERSION_1_3;
   }
 
-  Instance CreateInstance(std::span<const char*> requested_layers = {},
-                          std::span<const char*> requested_extensions = {},
-                          DebugLevel debug_level = DebugLevel::NONE) {
+  Instance create_instance(std::span<const char*> requested_layers = {},
+                           std::span<const char*> requested_extensions = {},
+                           DebugLevel debug_level = DebugLevel::NONE) {
     std::vector<const char*> layers{requested_layers.begin(),
                                     requested_layers.end()};
     std::vector<const char*> extensions{requested_extensions.begin(),
                                         requested_extensions.end()};
 
-    if (vk::HasLayerProperty(supported_layers_, impl::VALIDATION_LAYER_NAME)) {
+    if (vk::has_layer_property(supported_layers_,
+                               impl::VALIDATION_LAYER_NAME)) {
       layers.push_back(impl::VALIDATION_LAYER_NAME);
     }
 
     if (debug_level != DebugLevel::NONE) {
-      if (vk::HasExtensionProperty(
+      if (vk::has_extension_property(
               supported_extensions_[impl::VALIDATION_LAYER_NAME],
               impl::DEBUG_EXTENSION_NAME)) {
         extensions.push_back(impl::DEBUG_EXTENSION_NAME);

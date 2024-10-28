@@ -1,9 +1,5 @@
 #pragma once
 
-#include <vulkan/vulkan.h>
-
-static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
-
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -195,9 +191,9 @@ Overloaded(Ts...) -> Overloaded<Ts...>;
 
 template <typename CallableType, typename... ArgumentTypes,
           typename ContinuationType>
-void InvokeWithContinuation(ContinuationType&& continuation,
-                            CallableType&& callable,
-                            ArgumentTypes&&... arguments) {
+void invoke_with_continuation(ContinuationType&& continuation,
+                              CallableType&& callable,
+                              ArgumentTypes&&... arguments) {
   using CallableResultType =
       std::invoke_result_t<CallableType, ArgumentTypes...>;
 
@@ -210,5 +206,7 @@ void InvokeWithContinuation(ContinuationType&& continuation,
     std::invoke(continuation);
   }
 }
+
+struct Empty final {};
 
 }  // namespace volcano
