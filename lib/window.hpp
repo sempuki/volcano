@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lib/base.hpp"
+#include "vk/resource.hpp"
 
 namespace volcano {
 
@@ -22,16 +23,16 @@ class Window {
   explicit Window(std::string_view title, Geometry geometry)
       : title_{title}, geometry_{geometry} {}
 
-  void SetRenderer(std::unique_ptr<Renderer> renderer) {
+  void set_renderer(std::unique_ptr<Renderer> renderer) {
     renderer_ = std::move(renderer);
   }
 
-  virtual std::span<const char*> RequiredExtensions() const = 0;
-  virtual ::VkSurfaceKHR CreateSurface(::VkInstance instance) = 0;
-  virtual void Show() = 0;
+  virtual std::span<const char*> required_extensions() const = 0;
+  virtual ::VkSurfaceKHR create_surface(::VkInstance instance) = 0;
+  virtual void show() = 0;
 
  protected:
-  Renderer& GetRenderer() {
+  Renderer& renderer() {
     CHECK_PRECONDITION(renderer_);
     return *renderer_;
   }
