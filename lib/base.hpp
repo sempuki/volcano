@@ -48,6 +48,12 @@ static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
     return *this;                                         \
   }
 
+#define DERIVE_FINAL_WITH_CONSTRUCTORS(derived_name__, base_name__) \
+  class derived_name__ final : public base_name__ {                 \
+   public:                                                          \
+    using base_name__::base_name__;                                 \
+  };
+
 #define DECLARE_USED(expression__) ((void)(sizeof(expression__)))
 #define DECLARE_UNUSED(expression__) ((void)(sizeof(expression__)))
 

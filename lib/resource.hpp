@@ -626,12 +626,18 @@ class Instance final {
     std::uint32_t selected_queue_family_index =
         selected_result.front().queue_family_index;
 
+    // ::VkSurfaceKHR surface,                                       //
+    // ::VkPhysicalDevice phys_device,                               //
+    // const ::VkPhysicalDeviceFeatures& features,                   //
+    // const ::VkPhysicalDeviceMemoryProperties& memory_properties,  //
+    // std::vector<const char*> device_extensions,                   //
+    // std::vector<std::uint32_t> queue_families)
     return Device{surface,
                   selected_phys_device,
-                  phys_device_features_[selected_phys_device],
-                  phys_device_memory_properties_[selected_phys_device],
+                  phys_device_features_[selected_phys_device](),
+                  phys_device_memory_properties_[selected_phys_device](),
                   {impl::SWAPCHAIN_EXTENSION_NAME},
-                  {{selected_queue_family_index}}};
+                  {selected_queue_family_index}};
   }
 
  private:
@@ -686,39 +692,32 @@ class Instance final {
 
     std::print("Physical Devices: \n");
     for (auto&& phys_device : phys_devices_()) {
-      ::vkGetPhysicalDeviceProperties(
-          phys_device, std::addressof(phys_device_properties_[phys_device]));
-      std::print(
-          " ** {} [{}]\n", phys_device_properties_[phys_device].deviceName,
-          vk::ConvertToString(phys_device_properties_[phys_device].deviceType));
+      phys_device_properties_[phys_device] =
+          vk::PhysicalDeviceProperties{phys_device};
+      phys_device_memory_properties_[phys_device] =
+          vk::PhysicalDeviceMemoryProperties{phys_device};
+      phys_device_features_[phys_device] =
+          vk::PhysicalDeviceFeatures{phys_device};
+      phys_device_queue_family_properties_[phys_device] =
+          vk::PhysicalDeviceQueueFamilyProperties{phys_device};
+      supported_device_extension_properties_[phys_device] =
+          vk::DeviceExtensionProperties{phys_device, nullptr};
 
-      ::vkGetPhysicalDeviceMemoryProperties(
-          phys_device,
-          std::addressof(phys_device_memory_properties_[phys_device]));
-
-      ::vkGetPhysicalDeviceFeatures(
-          phys_device, std::addressof(phys_device_features_[phys_device]));
-
-      vk::MaybeEnumerateProperties(
-          std::bind_front(::vkGetPhysicalDeviceQueueFamilyProperties,
-                          phys_device),
-          InOut(phys_device_queue_family_properties_[phys_device]));
+      std::print(" ** {} [{}]\n",
+                 phys_device_properties_[phys_device]().deviceName,
+                 vk::ConvertToString(
+                     phys_device_properties_[phys_device]().deviceType));
 
       std::print("Queue Family Flags: \n");
       for (auto&& property :
-           phys_device_queue_family_properties_[phys_device]) {
+           phys_device_queue_family_properties_[phys_device]()) {
         std::print(" .. [{}] {}\n", property.queueCount,
                    vk::ConvertToString(property.queueFlags));
       }
 
-      vk::MaybeEnumerateProperties(
-          std::bind_front(::vkEnumerateDeviceExtensionProperties, phys_device,
-                          nullptr),
-          InOut(supported_device_extension_properties_[phys_device]));
-
       std::print("Supported Device Extensions: \n");
       for (auto&& property :
-           supported_device_extension_properties_[phys_device]) {
+           supported_device_extension_properties_[phys_device]()) {
         std::print(" -- {}\n", property.extensionName);
       }
 
@@ -741,7 +740,7 @@ class Instance final {
     for (auto&& phys_device : phys_devices_()) {
       auto&& phys_device_property = phys_device_properties_[phys_device];
       auto&& queue_family_properties =
-          phys_device_queue_family_properties_[phys_device];
+          phys_device_queue_family_properties_[phys_device]();
 
       for (std::uint32_t queue_family_i = 0;                 //
            queue_family_i < queue_family_properties.size();  //
@@ -779,15 +778,15 @@ class Instance final {
 
   vk::PhysicalDevices phys_devices_;
 
-  std::map<::VkPhysicalDevice, ::VkPhysicalDeviceProperties>
+  std::map<::VkPhysicalDevice, vk::PhysicalDeviceProperties>
       phys_device_properties_;
-  std::map<::VkPhysicalDevice, ::VkPhysicalDeviceMemoryProperties>
+  std::map<::VkPhysicalDevice, vk::PhysicalDeviceMemoryProperties>
       phys_device_memory_properties_;
-  std::map<::VkPhysicalDevice, ::VkPhysicalDeviceFeatures>
+  std::map<::VkPhysicalDevice, vk::PhysicalDeviceFeatures>
       phys_device_features_;
-  std::map<::VkPhysicalDevice, std::vector<::VkQueueFamilyProperties>>
+  std::map<::VkPhysicalDevice, vk::PhysicalDeviceQueueFamilyProperties>
       phys_device_queue_family_properties_;
-  std::map<::VkPhysicalDevice, std::vector<::VkExtensionProperties>>
+  std::map<::VkPhysicalDevice, vk::DeviceExtensionProperties>
       supported_device_extension_properties_;
 
   static ::VkDebugUtilsMessageSeverityFlagsEXT ConvertToDebugSeverity(

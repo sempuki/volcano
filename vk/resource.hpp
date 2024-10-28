@@ -197,12 +197,37 @@ using MemoryRequirementsBase =   //
         ::VkMemoryRequirements,  //
         ::vkGetBufferMemoryRequirements>;
 
+using PhysicalDevicePropertiesBase =   //
+    PropertyQuerier1Base<              //
+        ::VkPhysicalDevice,            //
+        ::VkPhysicalDeviceProperties,  //
+        ::vkGetPhysicalDeviceProperties>;
+
+using PhysicalDeviceMemoryPropertiesBase =   //
+    PropertyQuerier1Base<                    //
+        ::VkPhysicalDevice,                  //
+        ::VkPhysicalDeviceMemoryProperties,  //
+        ::vkGetPhysicalDeviceMemoryProperties>;
+
+using PhysicalDeviceFeaturesBase =   //
+    PropertyQuerier1Base<            //
+        ::VkPhysicalDevice,          //
+        ::VkPhysicalDeviceFeatures,  //
+        ::vkGetPhysicalDeviceFeatures>;
+
 //------------------------------------------------------------------------------
 
-class MemoryRequirements final : public MemoryRequirementsBase {
- public:
-  using MemoryRequirementsBase::MemoryRequirementsBase;
-};
+DERIVE_FINAL_WITH_CONSTRUCTORS(MemoryRequirements,  //
+                               MemoryRequirementsBase);
+
+DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceProperties,  //
+                               PhysicalDevicePropertiesBase);
+
+DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceMemoryProperties,  //
+                               PhysicalDeviceMemoryPropertiesBase);
+
+DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceFeatures,  //
+                               PhysicalDeviceFeaturesBase);
 
 //------------------------------------------------------------------------------
 
@@ -357,52 +382,29 @@ using SwapchainImagesBase =   //
         ::vkGetSwapchainImagesKHR>;
 
 //------------------------------------------------------------------------------
+DERIVE_FINAL_WITH_CONSTRUCTORS(InstanceLayerProperties,  //
+                               InstanceLayerPropertiesBase);
 
-class InstanceLayerProperties final : public InstanceLayerPropertiesBase {
- public:
-  using InstanceLayerPropertiesBase::InstanceLayerPropertiesBase;
-};
+DERIVE_FINAL_WITH_CONSTRUCTORS(InstanceExtensionProperties,  //
+                               InstanceExtensionPropertiesBase);
 
-class InstanceExtensionProperties final
-    : public InstanceExtensionPropertiesBase {
- public:
-  using InstanceExtensionPropertiesBase::InstanceExtensionPropertiesBase;
-};
+DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDevices,  //
+                               PhysicalDevicesBase);
 
-class PhysicalDevices final : public PhysicalDevicesBase {
- public:
-  using PhysicalDevicesBase::PhysicalDevicesBase;
-};
+DERIVE_FINAL_WITH_CONSTRUCTORS(DeviceExtensionProperties,  //
+                               DeviceExtensionPropertiesBase);
 
-class DeviceExtensionProperties final : public DeviceExtensionPropertiesBase {
- public:
-  using DeviceExtensionPropertiesBase::DeviceExtensionPropertiesBase;
-};
+DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceQueueFamilyProperties,  //
+                               PhysicalDeviceQueueFamilyPropertiesBase);
 
-class PhysicalDeviceSurfaceFormats final
-    : public PhysicalDeviceSurfaceFormatsBase {
- public:
-  using PhysicalDeviceSurfaceFormatsBase::PhysicalDeviceSurfaceFormatsBase;
-};
+DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceSurfaceFormats,  //
+                               PhysicalDeviceSurfaceFormatsBase);
 
-class PhysicalDeviceQueueFamilyProperties final
-    : public PhysicalDeviceQueueFamilyPropertiesBase {
- public:
-  using PhysicalDeviceQueueFamilyPropertiesBase::
-      PhysicalDeviceQueueFamilyPropertiesBase;
-};
+DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDevicePresentModes,  //
+                               PhysicalDeviceSurfacePresentModesBase);
 
-class PhysicalDevicePresentModes final
-    : public PhysicalDeviceSurfacePresentModesBase {
- public:
-  using PhysicalDeviceSurfacePresentModesBase::
-      PhysicalDeviceSurfacePresentModesBase;
-};
-
-class SwapchainImages final : public SwapchainImagesBase {
- public:
-  using SwapchainImagesBase::SwapchainImagesBase;
-};
+DERIVE_FINAL_WITH_CONSTRUCTORS(SwapchainImages,  //
+                               SwapchainImagesBase);
 
 //------------------------------------------------------------------------------
 
@@ -651,55 +653,16 @@ using SwapchainBase =                //
 
 //------------------------------------------------------------------------------
 
-class Instance final : public InstanceBase {
- public:
-  using InstanceBase::InstanceBase;
-};
-
-class Device final : public DeviceBase {
- public:
-  using DeviceBase::DeviceBase;
-};
-
-class Buffer final : public BufferBase {
- public:
-  using BufferBase::BufferBase;
-};
-
-class DeviceMemory final : public DeviceMemoryBase {
- public:
-  using DeviceMemoryBase::DeviceMemoryBase;
-};
-
-class CommandPool final : public CommandPoolBase {
- public:
-  using CommandPoolBase::CommandPoolBase;
-};
-
-class ImageView final : public ImageViewBase {
- public:
-  using ImageViewBase::ImageViewBase;
-};
-
-class RenderPass final : public RenderPassBase {
- public:
-  using RenderPassBase::RenderPassBase;
-};
-
-class PipelineLayout final : public PipelineLayoutBase {
- public:
-  using PipelineLayoutBase::PipelineLayoutBase;
-};
-
-class ShaderModule final : public ShaderModuleBase {
- public:
-  using ShaderModuleBase::ShaderModuleBase;
-};
-
-class Swapchain final : public SwapchainBase {
- public:
-  using SwapchainBase::SwapchainBase;
-};
+DERIVE_FINAL_WITH_CONSTRUCTORS(Instance, InstanceBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(Device, DeviceBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(Buffer, BufferBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(DeviceMemory, DeviceMemoryBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(CommandPool, CommandPoolBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(ImageView, ImageViewBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(RenderPass, RenderPassBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(PipelineLayout, PipelineLayoutBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(ShaderModule, ShaderModuleBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(Swapchain, SwapchainBase);
 
 //------------------------------------------------------------------------------
 
