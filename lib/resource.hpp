@@ -169,7 +169,7 @@ class ImageView final {
   ImageView() = delete;
   ~ImageView() = default;
 
-  operator ::VkImageView() { return image_view_.handle(); }
+  operator ::VkImageView() { return image_view_; }
 
  private:
   friend class Swapchain;
@@ -242,7 +242,7 @@ class RenderPass final {
   RenderPass() = delete;
   ~RenderPass() = default;
 
-  operator ::VkRenderPass() { return render_pass_.handle(); }
+  operator ::VkRenderPass() { return render_pass_; }
 
  private:
   friend class Device;
@@ -275,7 +275,8 @@ class RenderPass final {
                 .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
                 .inputAttachmentCount = 0,
                 .pInputAttachments = nullptr,
-                .colorAttachmentCount = color_reference.size(),
+                .colorAttachmentCount =
+                    narrow_cast<std::uint32_t>(color_reference.size()),
                 .pColorAttachments = color_reference.data(),
                 .pResolveAttachments = nullptr,
                 .pDepthStencilAttachment = nullptr,
@@ -311,11 +312,14 @@ class RenderPass final {
 
     render_pass_ = vk::RenderPass{
         device, ::VkRenderPassCreateInfo{
-                    .attachmentCount = color_attachment.size(),
+                    .attachmentCount =
+                        narrow_cast<std::uint32_t>(color_attachment.size()),
                     .pAttachments = color_attachment.data(),
-                    .subpassCount = subpass_description.size(),
+                    .subpassCount =
+                        narrow_cast<std::uint32_t>(subpass_description.size()),
                     .pSubpasses = subpass_description.data(),
-                    .dependencyCount = subpass_dependencies.size(),
+                    .dependencyCount =
+                        narrow_cast<std::uint32_t>(subpass_dependencies.size()),
                     .pDependencies = subpass_dependencies.data(),
                 }};
   }
@@ -331,6 +335,8 @@ class PipelineLayout final {
 
   PipelineLayout() = delete;
   ~PipelineLayout() = default;
+
+  operator ::VkPipelineLayout() { return pipeline_layout_; }
 
  private:
   friend class Device;
@@ -364,11 +370,13 @@ class GraphicsPipeline final {
                             std::uint32_t surface_height) {
     std::array<::VkPipelineShaderStageCreateInfo, 2> shader_stage_info{
         ::VkPipelineShaderStageCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VK_SHADER_STAGE_VERTEX_BIT,
             .module = vertex_shader,
             .pName = "main",  // Entry point.
         },
         ::VkPipelineShaderStageCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
             .module = fragment_shader,
             .pName = "main",  // Entry point.
@@ -403,6 +411,7 @@ class GraphicsPipeline final {
         };
 
     ::VkPipelineVertexInputStateCreateInfo vertex_input_state_info{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount =
             narrow_cast<std::uint32_t>(vertex_input_binding_desc.size()),
         .pVertexBindingDescriptions = vertex_input_binding_desc.data(),
@@ -412,6 +421,7 @@ class GraphicsPipeline final {
     };
 
     static ::VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
         .primitiveRestartEnable = VK_FALSE,
     };
@@ -443,6 +453,7 @@ class GraphicsPipeline final {
     };
 
     ::VkPipelineViewportStateCreateInfo viewport_state_info{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .viewportCount = narrow_cast<std::uint32_t>(viewports.size()),
         .pViewports = viewports.data(),
         .scissorCount = narrow_cast<std::uint32_t>(scissors.size()),
@@ -450,6 +461,7 @@ class GraphicsPipeline final {
     };
 
     static ::VkPipelineRasterizationStateCreateInfo rasterization_state_info{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         .depthClampEnable = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode = VK_POLYGON_MODE_FILL,
@@ -460,6 +472,7 @@ class GraphicsPipeline final {
     };
 
     static ::VkPipelineMultisampleStateCreateInfo multisample_state_info{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
         .sampleShadingEnable = VK_FALSE,
         .alphaToCoverageEnable = VK_FALSE,
@@ -474,6 +487,7 @@ class GraphicsPipeline final {
         };
 
     static ::VkPipelineColorBlendStateCreateInfo color_blend_state_info{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .logicOpEnable = VK_FALSE,
         .attachmentCount =
             narrow_cast<std::uint32_t>(color_blend_attchment_state.size()),
@@ -514,6 +528,8 @@ class ShaderModule final {
 
   ShaderModule() = delete;
   ~ShaderModule() = default;
+
+  operator ::VkShaderModule() { return shader_module_; }
 
  private:
   friend class Device;
