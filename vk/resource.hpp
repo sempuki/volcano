@@ -139,6 +139,11 @@ class GraphicsPipelineCreateInfo final     //
           ::VkGraphicsPipelineCreateInfo,  //
           VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO> {};
 
+class PipelineShaderStageCreateInfo final     //
+    : public impl::TypeValueAdapterBase<      //
+          ::VkPipelineShaderStageCreateInfo,  //
+          VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO> {};
+
 //------------------------------------------------------------------------------
 
 namespace impl {

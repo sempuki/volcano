@@ -64,10 +64,6 @@ int main() {
   auto device = instance.create_device(surface);
 
   auto queue = device.create_queue();
-  auto render_pass = device.create_render_pass(VK_FORMAT_B8G8R8A8_UNORM);
-  auto vert_shader = device.create_shader_module(vertex_shader_spirv_bin);
-  auto frag_shader = device.create_shader_module(fragment_shader_spirv_bin);
-  auto pipeline_layout = device.create_pipeline_layout();
   auto buffer = device.create_buffer(vert_buffer_byte_count,
                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
   auto memory = device.allocate_device_memory(
@@ -75,12 +71,20 @@ int main() {
                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   memory.copy_initialize(vert_buffer_bytes);
+
   auto command_pool = device.create_command_pool(queue.family_index());
   auto swapchain = device.create_swapchain(VK_FORMAT_B8G8R8A8_UNORM,
                                            VK_PRESENT_MODE_FIFO_KHR);
   auto swapchain_image_views = swapchain.create_image_views();
+  auto render_pass = device.create_render_pass(VK_FORMAT_B8G8R8A8_UNORM);
   auto frambuffers =
       device.create_framebuffers(render_pass, swapchain_image_views);
+
+  auto vert_shader = device.create_shader_module(vertex_shader_spirv_bin);
+  auto frag_shader = device.create_shader_module(fragment_shader_spirv_bin);
+  auto pipeline_layout = device.create_pipeline_layout();
+  auto graphics_pipeline = device.create_graphics_pipeline(
+      vert_shader, frag_shader, pipeline_layout, render_pass);
 
   window->set_renderer(device.create_surface_renderer());
   window->show();
