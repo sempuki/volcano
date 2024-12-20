@@ -13,13 +13,13 @@ static_assert(VK_HEADER_VERSION >= 290, "Update vulkan header version.");
 namespace volcano::vk {
 
 //------------------------------------------------------------------------------
-// NOTE: Copies of data used to create objects is retained for checking and
-// debugging purposes. This metadata is kept on the heap in move-only form to
-// avoid copies and maintain stable addresses.
 
 inline const ::VkAllocationCallbacks* ALLOCATOR = nullptr;
 
 //------------------------------------------------------------------------------
+// NOTE: Copies of data used to create objects (*`CreateInfo`s) are retained for
+// checking and debugging purposes. This metadata is kept on the heap in
+// move-only form to avoid copies and maintain stable addresses.
 
 namespace impl {
 template <typename VkType>
@@ -128,6 +128,11 @@ class SwapchainCreateInfo final           //
     : public impl::TypeValueAdapterBase<  //
           ::VkSwapchainCreateInfoKHR,     //
           VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR> {};
+
+class FramebufferCreateInfo final         //
+    : public impl::TypeValueAdapterBase<  //
+          ::VkFramebufferCreateInfo,      //
+          VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO> {};
 
 //------------------------------------------------------------------------------
 
@@ -732,6 +737,15 @@ using SurfaceBase =                    //
         impl::create_surface_adapter,  //
         ::vkDestroySurfaceKHR>;
 
+using FramebufferBase =             //
+    impl::ParentedHandleBase<       //
+        ::VkDevice,                 //
+        ::VkFramebuffer,            //
+        ::VkFramebufferCreateInfo,  //
+        FramebufferCreateInfo,      //
+        ::vkCreateFramebuffer,      //
+        ::vkDestroyFramebuffer>;
+
 //------------------------------------------------------------------------------
 
 DERIVE_FINAL_WITH_CONSTRUCTORS(Instance, InstanceBase);
@@ -746,6 +760,7 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(PipelineLayout, PipelineLayoutBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(ShaderModule, ShaderModuleBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Swapchain, SwapchainBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Surface, SurfaceBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(Framebuffer, FramebufferBase);
 
 //------------------------------------------------------------------------------
 
