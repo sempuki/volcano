@@ -134,6 +134,11 @@ class FramebufferCreateInfo final         //
           ::VkFramebufferCreateInfo,      //
           VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO> {};
 
+class GraphicsPipelineCreateInfo final     //
+    : public impl::TypeValueAdapterBase<   //
+          ::VkGraphicsPipelineCreateInfo,  //
+          VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO> {};
+
 //------------------------------------------------------------------------------
 
 namespace impl {
@@ -746,6 +751,26 @@ using FramebufferBase =             //
         ::vkCreateFramebuffer,      //
         ::vkDestroyFramebuffer>;
 
+namespace impl {
+inline ::VkResult create_graphics_pipeline_adapter(
+    ::VkDevice device,                         //
+    const VkGraphicsPipelineCreateInfo* info,  //
+    const VkAllocationCallbacks* _,            //
+    ::VkPipeline* handle) {
+  return ::vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, info, _,
+                                     handle);
+}
+}  // namespace impl
+
+using GraphicsPipelineBase =                     //
+    impl::ParentedHandleBase<                    //
+        ::VkDevice,                              //
+        ::VkPipeline,                            //
+        ::VkGraphicsPipelineCreateInfo,          //
+        GraphicsPipelineCreateInfo,              //
+        impl::create_graphics_pipeline_adapter,  //
+        ::vkDestroyPipeline>;
+
 //------------------------------------------------------------------------------
 
 DERIVE_FINAL_WITH_CONSTRUCTORS(Instance, InstanceBase);
@@ -761,6 +786,7 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(ShaderModule, ShaderModuleBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Swapchain, SwapchainBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Surface, SurfaceBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Framebuffer, FramebufferBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(GraphicsPipeline, GraphicsPipelineBase);
 
 //------------------------------------------------------------------------------
 

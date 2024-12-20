@@ -175,22 +175,25 @@ class ImageView final {
   friend class Swapchain;
 
   explicit ImageView(::VkDevice device, ::VkImage image, ::VkFormat format) {
-    ::VkImageViewCreateInfo create_info{};
+    image_view_ = vk::ImageView{
+        device, ::VkImageViewCreateInfo{
+                    .image = image,
+                    .viewType = VK_IMAGE_VIEW_TYPE_2D,
+                    .format = format,
+                    .components = {VK_COMPONENT_SWIZZLE_IDENTITY,  //
+                                   VK_COMPONENT_SWIZZLE_IDENTITY,  //
+                                   VK_COMPONENT_SWIZZLE_IDENTITY,  //
+                                   VK_COMPONENT_SWIZZLE_IDENTITY},
+                    .subresourceRange =
+                        {
+                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .baseMipLevel = 0,
+                            .levelCount = VK_REMAINING_MIP_LEVELS,
+                            .baseArrayLayer = 0,
+                            .layerCount = VK_REMAINING_ARRAY_LAYERS,
+                        },
 
-    create_info.image = image;
-    create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    create_info.format = format,
-    create_info.components = {VK_COMPONENT_SWIZZLE_IDENTITY,  //
-                              VK_COMPONENT_SWIZZLE_IDENTITY,  //
-                              VK_COMPONENT_SWIZZLE_IDENTITY,  //
-                              VK_COMPONENT_SWIZZLE_IDENTITY};
-    create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    create_info.subresourceRange.baseMipLevel = 0;
-    create_info.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
-    create_info.subresourceRange.baseArrayLayer = 0;
-    create_info.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-    image_view_ = vk::ImageView{device, create_info};
+                }};
   }
 
   vk::ImageView image_view_;
@@ -213,8 +216,8 @@ class Framebuffer final {
                        ::VkImageView image_view,    //
                        std::uint32_t width,         //
                        std::uint32_t height,        //
-                       std::uint32_t layers = 1)
-      : image_view_{image_view} {
+                       std::uint32_t layers = 1) {
+    image_view_ = image_view;
     framebuffer_ =
         vk::Framebuffer{device, ::VkFramebufferCreateInfo{
                                     .renderPass = render_pass,
@@ -246,34 +249,40 @@ class RenderPass final {
 
   explicit RenderPass(::VkDevice device, ::VkFormat format) {
     static std::array<::VkAttachmentDescription, 1>  //
-        color_attachment{::VkAttachmentDescription{
-            .samples = VK_SAMPLE_COUNT_1_BIT,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        }};
+        color_attachment{
+            ::VkAttachmentDescription{
+                .samples = VK_SAMPLE_COUNT_1_BIT,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            },
+        };
 
     static const std::array<const ::VkAttachmentReference, 1>  //
-        color_reference{::VkAttachmentReference{
-            .attachment = 0,
-            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        }};
+        color_reference{
+            ::VkAttachmentReference{
+                .attachment = 0,
+                .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            },
+        };
 
     static const std::array<const ::VkSubpassDescription, 1>  //
-        subpass_description{::VkSubpassDescription{
-            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-            .inputAttachmentCount = 0,
-            .pInputAttachments = nullptr,
-            .colorAttachmentCount = color_reference.size(),
-            .pColorAttachments = color_reference.data(),
-            .pResolveAttachments = nullptr,
-            .pDepthStencilAttachment = nullptr,
-            .preserveAttachmentCount = 0,
-            .pPreserveAttachments = nullptr,
-        }};
+        subpass_description{
+            ::VkSubpassDescription{
+                .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+                .inputAttachmentCount = 0,
+                .pInputAttachments = nullptr,
+                .colorAttachmentCount = color_reference.size(),
+                .pColorAttachments = color_reference.data(),
+                .pResolveAttachments = nullptr,
+                .pDepthStencilAttachment = nullptr,
+                .preserveAttachmentCount = 0,
+                .pPreserveAttachments = nullptr,
+            },
+        };
 
     static const ::VkSubpassDependency src_subpass_dependency{
         .srcSubpass = VK_SUBPASS_EXTERNAL,
@@ -332,6 +341,169 @@ class PipelineLayout final {
   }
 
   vk::PipelineLayout pipeline_layout_;
+};
+
+//------------------------------------------------------------------------------
+class GraphicsPipeline final {
+ public:
+  DECLARE_COPY_DELETE(GraphicsPipeline);
+  DECLARE_MOVE_DEFAULT(GraphicsPipeline);
+
+  GraphicsPipeline() = delete;
+  ~GraphicsPipeline() = default;
+
+ private:
+  friend class Device;
+
+  explicit GraphicsPipeline(::VkDevice device,  //
+                            ::VkShaderModule vertex_shader,
+                            ::VkShaderModule fragment_shader,
+                            ::VkPipelineLayout pipeline_layout,
+                            ::VkRenderPass render_pass,
+                            std::uint32_t surface_width,
+                            std::uint32_t surface_height) {
+    std::array<::VkPipelineShaderStageCreateInfo, 2> shader_stage_info{
+        ::VkPipelineShaderStageCreateInfo{
+            .stage = VK_SHADER_STAGE_VERTEX_BIT,
+            .module = vertex_shader,
+            .pName = "main",  // Entry point.
+        },
+        ::VkPipelineShaderStageCreateInfo{
+            .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+            .module = fragment_shader,
+            .pName = "main",  // Entry point.
+        },
+    };
+
+    std::array<::VkVertexInputBindingDescription, 1>  //
+        vertex_input_binding_desc{
+            ::VkVertexInputBindingDescription{
+                .binding = 0,                 // ??
+                .stride = 5 * sizeof(float),  // sizeof(Vertex2D_ColorF_pack)
+                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+            },
+        };
+
+    std::array<::VkVertexInputAttributeDescription, 2>  //
+        vertex_input_attribute_desc{
+            ::VkVertexInputAttributeDescription{
+                .location = 0,  // ??
+                .binding = 0,   // ??
+                .format = VK_FORMAT_R32G32_SFLOAT,
+                // offsetof(Vertex2D_ColorF_pack, position)
+                .offset = 0 * sizeof(float),
+            },
+            ::VkVertexInputAttributeDescription{
+                .location = 1,  // ??
+                .binding = 0,   // ??
+                .format = VK_FORMAT_R32G32_SFLOAT,
+                // offsetof(Vertex2D_ColorF_pack, color)
+                .offset = 2 * sizeof(float),
+            },
+        };
+
+    ::VkPipelineVertexInputStateCreateInfo vertex_input_state_info{
+        .vertexBindingDescriptionCount =
+            narrow_cast<std::uint32_t>(vertex_input_binding_desc.size()),
+        .pVertexBindingDescriptions = vertex_input_binding_desc.data(),
+        .vertexAttributeDescriptionCount =
+            narrow_cast<std::uint32_t>(vertex_input_attribute_desc.size()),
+        .pVertexAttributeDescriptions = vertex_input_attribute_desc.data(),
+    };
+
+    static ::VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info{
+        .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .primitiveRestartEnable = VK_FALSE,
+    };
+
+    std::array<::VkViewport, 1> viewports{
+        ::VkViewport{
+            .x = 0.f,
+            .y = 0.f,
+            .width = static_cast<float>(surface_width),
+            .height = static_cast<float>(surface_height),
+            .minDepth = 0.f,
+            .maxDepth = 1.f,
+        },
+    };
+
+    std::array<::VkRect2D, 1> scissors{
+        ::VkRect2D{
+            .offset =
+                {
+                    .x = 0,
+                    .y = 0,
+                },
+            .extent =
+                {
+                    .width = surface_width,
+                    .height = surface_height,
+                },
+        },
+    };
+
+    ::VkPipelineViewportStateCreateInfo viewport_state_info{
+        .viewportCount = narrow_cast<std::uint32_t>(viewports.size()),
+        .pViewports = viewports.data(),
+        .scissorCount = narrow_cast<std::uint32_t>(scissors.size()),
+        .pScissors = scissors.data(),
+    };
+
+    static ::VkPipelineRasterizationStateCreateInfo rasterization_state_info{
+        .depthClampEnable = VK_FALSE,
+        .rasterizerDiscardEnable = VK_FALSE,
+        .polygonMode = VK_POLYGON_MODE_FILL,
+        .cullMode = VK_CULL_MODE_BACK_BIT,
+        .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .depthBiasEnable = VK_FALSE,
+        .lineWidth = 1.f,
+    };
+
+    static ::VkPipelineMultisampleStateCreateInfo multisample_state_info{
+        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .sampleShadingEnable = VK_FALSE,
+        .alphaToCoverageEnable = VK_FALSE,
+        .alphaToOneEnable = VK_FALSE,
+    };
+
+    static std::array<::VkPipelineColorBlendAttachmentState, 1>  //
+        color_blend_attchment_state{
+            ::VkPipelineColorBlendAttachmentState{
+                .blendEnable = VK_FALSE,
+            },
+        };
+
+    static ::VkPipelineColorBlendStateCreateInfo color_blend_state_info{
+        .logicOpEnable = VK_FALSE,
+        .attachmentCount =
+            narrow_cast<std::uint32_t>(color_blend_attchment_state.size()),
+        .pAttachments = color_blend_attchment_state.data(),
+        .blendConstants = {0.f, 0.f, 0.f, 0.f},
+    };
+
+    pipeline_layout_ = vk::GraphicsPipeline{
+        device,
+        ::VkGraphicsPipelineCreateInfo{
+            .stageCount = narrow_cast<std::uint32_t>(shader_stage_info.size()),
+            .pStages = shader_stage_info.data(),
+            .pVertexInputState = std::addressof(vertex_input_state_info),
+            .pInputAssemblyState = std::addressof(input_assembly_state_info),
+            .pTessellationState = nullptr,
+            .pViewportState = std::addressof(viewport_state_info),
+            .pRasterizationState = std::addressof(rasterization_state_info),
+            .pMultisampleState = std::addressof(multisample_state_info),
+            .pDepthStencilState = nullptr,
+            .pColorBlendState = std::addressof(color_blend_state_info),
+            .pDynamicState = nullptr,
+            .layout = pipeline_layout,
+            .renderPass = render_pass,
+            .subpass = 0,
+            .basePipelineHandle = VK_NULL_HANDLE,
+            .basePipelineIndex = -1,
+        }};
+  }
+
+  vk::GraphicsPipeline pipeline_layout_;
 };
 
 //------------------------------------------------------------------------------
@@ -508,10 +680,6 @@ class Device final {
                                              surface_formats_);
   }
 
-  PipelineLayout create_pipeline_layout() {
-    return PipelineLayout{device_};  //
-  }
-
   ShaderModule create_shader_module(
       const std::vector<std::uint32_t>& shader_spirv_bin) {
     return ShaderModule{device_, shader_spirv_bin};
@@ -551,6 +719,23 @@ class Device final {
                       surface_capabilities_().currentExtent.height});
     }
     return result;
+  }
+
+  PipelineLayout create_pipeline_layout() {
+    return PipelineLayout{device_};  //
+  }
+
+  GraphicsPipeline create_graphics_pipeline(::VkShaderModule vertex_shader,
+                                            ::VkShaderModule fragment_shader,
+                                            ::VkPipelineLayout pipeline_layout,
+                                            ::VkRenderPass render_pass) {
+    return GraphicsPipeline{device_,
+                            vertex_shader,
+                            fragment_shader,
+                            pipeline_layout,
+                            render_pass,
+                            surface_capabilities_().currentExtent.width,
+                            surface_capabilities_().currentExtent.height};
   }
 
  private:
