@@ -1,5 +1,6 @@
 #pragma once
 
+#include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -69,6 +70,13 @@
 #define CHECK_UNREACHABLE() CHECK_CONTRACT__(false, "Unreachable")
 
 namespace volcano {
+
+template <std::integral ToType, std::integral FromType>
+ToType narrow_cast(FromType from) {
+  ToType to = static_cast<ToType>(from);
+  CHECK_PRECONDITION(std::cmp_equal(to, from))
+  return to;
+}
 
 template <typename Type>
 class CheckedPointer {

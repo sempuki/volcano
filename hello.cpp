@@ -78,8 +78,9 @@ int main() {
   auto command_pool = device.create_command_pool(queue.family_index());
   auto swapchain = device.create_swapchain(VK_FORMAT_B8G8R8A8_UNORM,
                                            VK_PRESENT_MODE_FIFO_KHR);
-  auto swapchain_image_views =
-      device.create_image_views(swapchain.Images(), VK_FORMAT_B8G8R8A8_UNORM);
+  auto swapchain_image_views = swapchain.create_image_views();
+  auto frambuffers =
+      device.create_framebuffers(render_pass, swapchain_image_views);
 
   window->set_renderer(device.create_surface_renderer());
   window->show();

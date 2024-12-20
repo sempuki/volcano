@@ -151,9 +151,10 @@ class CommandPool final {
   friend class Device;
 
   explicit CommandPool(::VkDevice device, std::uint32_t queue_family_index) {
-    command_pool_ = vk::CommandPool{
-        device,
-        ::VkCommandPoolCreateInfo{.queueFamilyIndex = queue_family_index}};
+    command_pool_ =
+        vk::CommandPool{device, ::VkCommandPoolCreateInfo{
+                                    .queueFamilyIndex = queue_family_index,
+                                }};
   }
 
   vk::CommandPool command_pool_;
@@ -168,8 +169,10 @@ class ImageView final {
   ImageView() = delete;
   ~ImageView() = default;
 
+  operator ::VkImageView() { return image_view_.handle(); }
+
  private:
-  friend class Device;
+  friend class Swapchain;
 
   explicit ImageView(::VkDevice device, ::VkImage image, ::VkFormat format) {
     ::VkImageViewCreateInfo create_info{};
@@ -194,6 +197,40 @@ class ImageView final {
 };
 
 //------------------------------------------------------------------------------
+class Framebuffer final {
+ public:
+  DECLARE_COPY_DELETE(Framebuffer);
+  DECLARE_MOVE_DEFAULT(Framebuffer);
+
+  Framebuffer() = delete;
+  ~Framebuffer() = default;
+
+ private:
+  friend class Device;
+
+  explicit Framebuffer(::VkDevice device,           //
+                       ::VkRenderPass render_pass,  //
+                       ::VkImageView image_view,    //
+                       std::uint32_t width,         //
+                       std::uint32_t height,        //
+                       std::uint32_t layers = 1)
+      : image_view_{image_view} {
+    framebuffer_ =
+        vk::Framebuffer{device, ::VkFramebufferCreateInfo{
+                                    .renderPass = render_pass,
+                                    .attachmentCount = 1,
+                                    .pAttachments = std::addressof(image_view_),
+                                    .width = width,
+                                    .height = height,
+                                    .layers = layers,
+                                }};
+  }
+
+  vk::Framebuffer framebuffer_;
+  ::VkImageView image_view_ = VK_NULL_HANDLE;
+};
+
+//------------------------------------------------------------------------------
 class RenderPass final {
  public:
   DECLARE_COPY_DELETE(RenderPass);
@@ -202,38 +239,40 @@ class RenderPass final {
   RenderPass() = delete;
   ~RenderPass() = default;
 
+  operator ::VkRenderPass() { return render_pass_.handle(); }
+
  private:
   friend class Device;
 
   explicit RenderPass(::VkDevice device, ::VkFormat format) {
     static std::array<::VkAttachmentDescription, 1>  //
         color_attachment{::VkAttachmentDescription{
-            .samples = VK_SAMPLE_COUNT_1_BIT,                    //
-            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,               //
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,             //
-            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,    //
-            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,  //
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,          //
-            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR       //
+            .samples = VK_SAMPLE_COUNT_1_BIT,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+            .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
         }};
 
     static const std::array<const ::VkAttachmentReference, 1>  //
         color_reference{::VkAttachmentReference{
-            .attachment = 0,                                    //
-            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL  //
+            .attachment = 0,
+            .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         }};
 
     static const std::array<const ::VkSubpassDescription, 1>  //
         subpass_description{::VkSubpassDescription{
-            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,  //
-            .inputAttachmentCount = 0,                             //
-            .pInputAttachments = nullptr,                          //
-            .colorAttachmentCount = color_reference.size(),        //
-            .pColorAttachments = color_reference.data(),           //
-            .pResolveAttachments = nullptr,                        //
-            .pDepthStencilAttachment = nullptr,                    //
-            .preserveAttachmentCount = 0,                          //
-            .pPreserveAttachments = nullptr                        //
+            .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .inputAttachmentCount = 0,
+            .pInputAttachments = nullptr,
+            .colorAttachmentCount = color_reference.size(),
+            .pColorAttachments = color_reference.data(),
+            .pResolveAttachments = nullptr,
+            .pDepthStencilAttachment = nullptr,
+            .preserveAttachmentCount = 0,
+            .pPreserveAttachments = nullptr,
         }};
 
     static const ::VkSubpassDependency src_subpass_dependency{
@@ -243,7 +282,8 @@ class RenderPass final {
         .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         .srcAccessMask = 0,
         .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT};
+        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+    };
 
     static const ::VkSubpassDependency dst_subpass_dependency{
         .srcSubpass = 0,
@@ -252,7 +292,8 @@ class RenderPass final {
         .dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
         .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
         .dstAccessMask = 0,
-        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT};
+        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+    };
 
     static const std::array<const ::VkSubpassDependency, 2>
         subpass_dependencies{src_subpass_dependency, dst_subpass_dependency};
@@ -307,12 +348,12 @@ class ShaderModule final {
 
   explicit ShaderModule(::VkDevice device,
                         const std::vector<std::uint32_t>& shader_spirv_bin) {
-    ::VkShaderModuleCreateInfo create_info{};
-    create_info.pCode = shader_spirv_bin.data();
-    create_info.codeSize =
-        shader_spirv_bin.size() * sizeof(std::uint32_t);  // Byte count.
-
-    shader_module_ = vk::ShaderModule{device, create_info};
+    shader_module_ = vk::ShaderModule{
+        device, ::VkShaderModuleCreateInfo{
+                    .codeSize = shader_spirv_bin.size() *
+                                sizeof(std::uint32_t),  // Byte count.
+                    .pCode = shader_spirv_bin.data(),
+                }};
   }
 
   vk::ShaderModule shader_module_;
@@ -327,7 +368,13 @@ class Swapchain final {
   Swapchain() = delete;
   ~Swapchain() = default;
 
-  std::span<::VkImage> Images() { return {swapchain_images_}; }
+  std::vector<::VkImageView> create_image_views() {
+    std::vector<::VkImageView> result;
+    for (auto&& image_view : image_views_) {
+      result.push_back(image_view);
+    }
+    return result;
+  }
 
  private:
   friend class Device;
@@ -364,7 +411,8 @@ class Swapchain final {
                     .imageSharingMode = queue_families_.size() > 1
                                             ? VK_SHARING_MODE_CONCURRENT
                                             : VK_SHARING_MODE_EXCLUSIVE,
-                    .queueFamilyIndexCount = queue_families_.size(),
+                    .queueFamilyIndexCount =
+                        narrow_cast<std::uint32_t>(queue_families_.size()),
                     .pQueueFamilyIndices = queue_families_.data(),
                     .preTransform = surface_capabilities_.currentTransform,
                     .compositeAlpha = composite_alpha,
@@ -374,11 +422,17 @@ class Swapchain final {
                 }};
 
     swapchain_images_ = vk::SwapchainImages{device, swapchain_};
+
+    for (auto&& swapchain_image : swapchain_images_()) {
+      image_views_.push_back(
+          ImageView{device, swapchain_image, surface_format.format});
+    }
   }
 
   vk::Swapchain swapchain_;
   vk::SwapchainImages swapchain_images_;
 
+  std::vector<ImageView> image_views_;
   std::vector<std::uint32_t> queue_families_;
 
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
@@ -487,11 +541,14 @@ class Device final {
                      previous_swapchain};
   }
 
-  std::vector<ImageView> create_image_views(std::span<::VkImage> images,
-                                            ::VkFormat format) {
-    std::vector<ImageView> result;
-    for (auto&& image : images) {
-      result.push_back(ImageView{device_, image, format});
+  std::vector<Framebuffer> create_framebuffers(
+      ::VkRenderPass render_pass, std::span<::VkImageView> image_views) {
+    std::vector<Framebuffer> result;
+    for (auto&& image_view : image_views) {
+      result.push_back(
+          Framebuffer{device_, render_pass, image_view,
+                      surface_capabilities_().currentExtent.width,
+                      surface_capabilities_().currentExtent.height});
     }
     return result;
   }
@@ -523,13 +580,16 @@ class Device final {
     }
 
     device_ = vk::Device{
-        phys_device, ::VkDeviceCreateInfo{
-                         .queueCreateInfoCount = device_queue_infos_.size(),
-                         .pQueueCreateInfos = device_queue_infos_.data(),
-                         .enabledExtensionCount = device_extensions_.size(),
-                         .ppEnabledExtensionNames = device_extensions_.data(),
-                         .pEnabledFeatures = phys_device_features_.address(),
-                     }};
+        phys_device,
+        ::VkDeviceCreateInfo{
+            .queueCreateInfoCount =
+                narrow_cast<std::uint32_t>(device_queue_infos_.size()),
+            .pQueueCreateInfos = device_queue_infos_.data(),
+            .enabledExtensionCount =
+                narrow_cast<std::uint32_t>(device_extensions_.size()),
+            .ppEnabledExtensionNames = device_extensions_.data(),
+            .pEnabledFeatures = phys_device_features_.address(),
+        }};
 
     surface_ = vk::Surface{instance, surface};
     surface_formats_ = vk::PhysicalDeviceSurfaceFormats{phys_device, surface};
@@ -545,8 +605,16 @@ class Device final {
 
     std::print("Surface Present Modes: \n");
     for (auto&& surface_present_mode : surface_present_modes_()) {
-      std::print(" .. {}\n", vk::convert_to_string(surface_present_mode));
+      std::print(" '' {}\n", vk::convert_to_string(surface_present_mode));
     }
+
+    std::print("Surface Capabilities: \n");
+    std::print(" .. Image Count: {},{}\n",  //
+               surface_capabilities_().minImageCount,
+               surface_capabilities_().maxImageCount);
+    std::print(" .. Image Extent Current: {},{}\n",  //
+               surface_capabilities_().currentExtent.width,
+               surface_capabilities_().currentExtent.height);
   }
 
   vk::Device device_;
@@ -634,9 +702,11 @@ class Instance final {
 
     ::VkInstanceCreateInfo create_info{
         .pApplicationInfo = app_info,
-        .enabledLayerCount = instance_layers_.size(),
+        .enabledLayerCount =
+            narrow_cast<std::uint32_t>(instance_layers_.size()),
         .ppEnabledLayerNames = instance_layers_.data(),
-        .enabledExtensionCount = instance_extensions_.size(),
+        .enabledExtensionCount =
+            narrow_cast<std::uint32_t>(instance_extensions_.size()),
         .ppEnabledExtensionNames = instance_extensions_.data(),
     };
 
@@ -725,8 +795,8 @@ class Instance final {
                       queue_family_i,        //
                       queue_family_property)) {
           result.push_back({
-              .phys_device = phys_device,           //
-              .queue_family_index = queue_family_i  //
+              .phys_device = phys_device,
+              .queue_family_index = queue_family_i,
           });
         }
       }
