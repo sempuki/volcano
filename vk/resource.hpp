@@ -495,11 +495,11 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(SwapchainImages,  //
 
 //------------------------------------------------------------------------------
 namespace impl {
-template <typename HandleType,                   //
-          typename HandleCreateInfoType,         //
-          typename HandleCreateInfoAdapterType,  //
-          auto BeginHandle,                      //
-          auto EndHandle>                        //
+template <typename HandleType,                 //
+          typename HandleOpenInfoType,         //
+          typename HandleOpenInfoAdapterType,  //
+          auto OpenHandle,                     //
+          auto CloseHandle>                    //
 class HandleBase {
  public:
   DECLARE_COPY_DELETE(HandleBase);
@@ -507,7 +507,7 @@ class HandleBase {
   HandleBase() = default;
   ~HandleBase() {
     if (handle_ != VK_NULL_HANDLE) {
-      EndHandle(handle_, ALLOCATOR);
+      CloseHandle(handle_, ALLOCATOR);
     }
   }
 
@@ -525,17 +525,17 @@ class HandleBase {
 
   explicit HandleBase(HandleType handle) : handle_{handle} {}
 
-  explicit HandleBase(HandleType handle, const HandleCreateInfoType& info)
+  explicit HandleBase(HandleType handle, const HandleOpenInfoType& info)
       : handle_{handle}, info_{info} {
     CHECK_PRECONDITION(handle_ != VK_NULL_HANDLE);
     ::VkResult result =
-        BeginHandle(info_.address(), ALLOCATOR, std::addressof(handle_));
+        OpenHandle(info_.address(), ALLOCATOR, std::addressof(handle_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
-  explicit HandleBase(const HandleCreateInfoType& info) : info_{info} {
+  explicit HandleBase(const HandleOpenInfoType& info) : info_{info} {
     ::VkResult result =
-        BeginHandle(info_.address(), ALLOCATOR, std::addressof(handle_));
+        OpenHandle(info_.address(), ALLOCATOR, std::addressof(handle_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
     CHECK_POSTCONDITION(handle_ != VK_NULL_HANDLE);
   }
@@ -544,21 +544,21 @@ class HandleBase {
   operator HandleType() const { return handle_; }
 
   HandleType handle() const { return handle_; }
-  const HandleCreateInfoType& info() const { return info_(); }
+  const HandleOpenInfoType& info() const { return info_(); }
 
  private:
   HandleType handle_ = VK_NULL_HANDLE;
-  HandleCreateInfoAdapterType info_;
+  HandleOpenInfoAdapterType info_;
 };
 
 //------------------------------------------------------------------------------
 
-template <typename ParentType,                   //
-          typename HandleType,                   //
-          typename HandleCreateInfoType,         //
-          typename HandleCreateInfoAdapterType,  //
-          auto BeginHandle,                      //
-          auto EndHandle>                        //
+template <typename ParentType,                 //
+          typename HandleType,                 //
+          typename HandleOpenInfoType,         //
+          typename HandleOpenInfoAdapterType,  //
+          auto OpenHandle,                     //
+          auto CloseHandle>                    //
 class ParentedHandleBase {
  public:
   DECLARE_COPY_DELETE(ParentedHandleBase);
@@ -566,7 +566,7 @@ class ParentedHandleBase {
   ParentedHandleBase() = default;
   ~ParentedHandleBase() {
     if (handle_ != VK_NULL_HANDLE) {
-      EndHandle(parent_, handle_, ALLOCATOR);
+      CloseHandle(parent_, handle_, ALLOCATOR);
     }
   }
 
@@ -588,21 +588,20 @@ class ParentedHandleBase {
       : parent_{parent}, handle_{handle} {}
 
   explicit ParentedHandleBase(ParentType parent, HandleType handle,
-                              const HandleCreateInfoType& info)
+                              const HandleOpenInfoType& info)
       : parent_{parent}, handle_{handle}, info_{info} {
     CHECK_PRECONDITION(parent_ != VK_NULL_HANDLE);
     CHECK_PRECONDITION(handle_ != VK_NULL_HANDLE);
-    ::VkResult result = BeginHandle(parent_, info_.address(), ALLOCATOR,
-                                    std::addressof(handle_));
+    ::VkResult result = OpenHandle(parent_, info_.address(), ALLOCATOR,
+                                   std::addressof(handle_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
-  explicit ParentedHandleBase(ParentType parent,
-                              const HandleCreateInfoType& info)
+  explicit ParentedHandleBase(ParentType parent, const HandleOpenInfoType& info)
       : parent_{parent}, info_{info} {
     CHECK_PRECONDITION(parent_ != VK_NULL_HANDLE);
-    ::VkResult result = BeginHandle(parent_, info_.address(), ALLOCATOR,
-                                    std::addressof(handle_));
+    ::VkResult result = OpenHandle(parent_, info_.address(), ALLOCATOR,
+                                   std::addressof(handle_));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
     CHECK_POSTCONDITION(handle_ != VK_NULL_HANDLE);
   }
@@ -615,12 +614,12 @@ class ParentedHandleBase {
   ParentType parent() const { return parent_; }
   HandleType handle() const { return handle_; }
 
-  const HandleCreateInfoType& info() const { return info_(); }
+  const HandleOpenInfoType& info() const { return info_(); }
 
  private:
   ParentType parent_ = VK_NULL_HANDLE;
   HandleType handle_ = VK_NULL_HANDLE;
-  HandleCreateInfoAdapterType info_;
+  HandleOpenInfoAdapterType info_;
 };
 }  // namespace impl
 
