@@ -495,11 +495,11 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(SwapchainImages,  //
 
 //------------------------------------------------------------------------------
 namespace impl {
-template <typename HandleType,                 //
-          typename HandleOpenInfoType,         //
-          typename HandleOpenInfoAdapterType,  //
-          auto OpenHandle,                     //
-          auto CloseHandle>                    //
+template <typename HandleType,                //
+          typename HandleOpenInfoType,        //
+          typename HandleOpenInfoHolderType,  //
+          auto OpenHandle,                    //
+          auto CloseHandle>                   //
 class HandleBase {
  public:
   DECLARE_COPY_DELETE(HandleBase);
@@ -523,8 +523,10 @@ class HandleBase {
     return *this;
   }
 
+  // Adopt Constructor.
   explicit HandleBase(HandleType handle) : handle_{handle} {}
 
+  // Adapt Constructor.
   explicit HandleBase(HandleType handle, const HandleOpenInfoType& info)
       : handle_{handle}, info_{info} {
     CHECK_PRECONDITION(handle_ != VK_NULL_HANDLE);
@@ -533,6 +535,7 @@ class HandleBase {
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
+  // Init Constructor.
   explicit HandleBase(const HandleOpenInfoType& info) : info_{info} {
     ::VkResult result =
         OpenHandle(info_.address(), ALLOCATOR, std::addressof(handle_));
@@ -548,17 +551,17 @@ class HandleBase {
 
  private:
   HandleType handle_ = VK_NULL_HANDLE;
-  HandleOpenInfoAdapterType info_;
+  HandleOpenInfoHolderType info_;
 };
 
 //------------------------------------------------------------------------------
 
-template <typename ParentType,                 //
-          typename HandleType,                 //
-          typename HandleOpenInfoType,         //
-          typename HandleOpenInfoAdapterType,  //
-          auto OpenHandle,                     //
-          auto CloseHandle>                    //
+template <typename ParentType,                //
+          typename HandleType,                //
+          typename HandleOpenInfoType,        //
+          typename HandleOpenInfoHolderType,  //
+          auto OpenHandle,                    //
+          auto CloseHandle>                   //
 class ParentedHandleBase {
  public:
   DECLARE_COPY_DELETE(ParentedHandleBase);
@@ -584,9 +587,11 @@ class ParentedHandleBase {
     return *this;
   }
 
+  // Adopt Constructor.
   explicit ParentedHandleBase(ParentType parent, HandleType handle)
       : parent_{parent}, handle_{handle} {}
 
+  // Adapt Constructor.
   explicit ParentedHandleBase(ParentType parent, HandleType handle,
                               const HandleOpenInfoType& info)
       : parent_{parent}, handle_{handle}, info_{info} {
@@ -597,6 +602,7 @@ class ParentedHandleBase {
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
+  // Init Constructor.
   explicit ParentedHandleBase(ParentType parent, const HandleOpenInfoType& info)
       : parent_{parent}, info_{info} {
     CHECK_PRECONDITION(parent_ != VK_NULL_HANDLE);
@@ -619,7 +625,7 @@ class ParentedHandleBase {
  private:
   ParentType parent_ = VK_NULL_HANDLE;
   HandleType handle_ = VK_NULL_HANDLE;
-  HandleOpenInfoAdapterType info_;
+  HandleOpenInfoHolderType info_;
 };
 }  // namespace impl
 
@@ -945,6 +951,11 @@ class CommandBufferBlock final {
                              block_.data() + next_count);
       block_.resize(next_count);
     }
+  }
+
+  ::VkCommandBuffer operator[](std::uint32_t index) const {
+    CHECK_PRECONDITION(index < block_.size());
+    return block_[index];
   }
 
  private:

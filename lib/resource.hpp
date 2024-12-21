@@ -153,8 +153,7 @@ class RenderPassCommandBuffer final {
   explicit RenderPassCommandBuffer(::VkCommandBuffer command_buffer,
                                    ::VkRenderPass render_pass,
                                    ::VkFramebuffer framebuffer,
-                                   std::uint32_t surface_width,
-                                   std::uint32_t surface_height) {
+                                   ::VkExtent2D framebuffer_extent) {
     static std::array<::VkClearValue, 1>  //
         clear_values{::VkClearValue{
             .color =
@@ -179,11 +178,7 @@ class RenderPassCommandBuffer final {
                             .x = 0,
                             .y = 0,
                         },
-                    .extent =
-                        {
-                            .width = surface_width,
-                            .height = surface_height,
-                        },
+                    .extent = framebuffer_extent,
                 },
             .clearValueCount = narrow_cast<std::uint32_t>(clear_values.size()),
             .pClearValues = clear_values.data(),
@@ -204,6 +199,17 @@ class CommandBufferBlock final {
 
   void acquire_command_buffers(std::uint32_t count) {
     command_buffers_.acquire_command_buffers(count);
+  }
+
+  RenderPassCommandBuffer create_render_pass_command_buffer(
+      std::uint32_t command_buffer_index,  //
+      ::VkRenderPass render_pass,          //
+      ::VkFramebuffer framebuffer,         //
+      ::VkExtent2D framebuffer_extent) {
+    return RenderPassCommandBuffer{command_buffers_[command_buffer_index],  //
+                                   render_pass,                             //
+                                   framebuffer,                             //
+                                   framebuffer_extent};
   }
 
  private:
@@ -294,29 +300,33 @@ class Framebuffer final {
   Framebuffer() = delete;
   ~Framebuffer() = default;
 
+  operator ::VkFramebuffer() { return framebuffer_; }
+  ::VkExtent2D extent() const { return extent_; }
+
  private:
   friend class Device;
 
-  explicit Framebuffer(::VkDevice device,           //
-                       ::VkRenderPass render_pass,  //
-                       ::VkImageView image_view,    //
-                       std::uint32_t width,         //
-                       std::uint32_t height,        //
-                       std::uint32_t layers = 1) {
-    image_view_ = image_view;
+  explicit Framebuffer(::VkDevice device,            //
+                       ::VkRenderPass render_pass,   //
+                       ::VkImageView image_view,     //
+                       ::VkExtent2D surface_extent,  //
+                       std::uint32_t surface_layers = 1)
+      : image_view_{image_view},  //
+        extent_{surface_extent} {
     framebuffer_ =
         vk::Framebuffer{device, ::VkFramebufferCreateInfo{
                                     .renderPass = render_pass,
                                     .attachmentCount = 1,
                                     .pAttachments = std::addressof(image_view_),
-                                    .width = width,
-                                    .height = height,
-                                    .layers = layers,
+                                    .width = surface_extent.width,
+                                    .height = surface_extent.height,
+                                    .layers = surface_layers,
                                 }};
   }
 
   vk::Framebuffer framebuffer_;
   ::VkImageView image_view_ = VK_NULL_HANDLE;
+  ::VkExtent2D extent_{};
 };
 
 //------------------------------------------------------------------------------
@@ -452,8 +462,7 @@ class GraphicsPipeline final {
                             ::VkShaderModule fragment_shader,
                             ::VkPipelineLayout pipeline_layout,
                             ::VkRenderPass render_pass,
-                            std::uint32_t surface_width,
-                            std::uint32_t surface_height) {
+                            ::VkExtent2D surface_extent) {
     std::array<::VkPipelineShaderStageCreateInfo, 2> shader_stage_info{
         ::VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -516,26 +525,20 @@ class GraphicsPipeline final {
         ::VkViewport{
             .x = 0.f,
             .y = 0.f,
-            .width = static_cast<float>(surface_width),
-            .height = static_cast<float>(surface_height),
+            .width = static_cast<float>(surface_extent.width),
+            .height = static_cast<float>(surface_extent.height),
             .minDepth = 0.f,
             .maxDepth = 1.f,
         },
     };
 
     std::array<::VkRect2D, 1> scissors{
-        ::VkRect2D{
-            .offset =
-                {
-                    .x = 0,
-                    .y = 0,
-                },
-            .extent =
-                {
-                    .width = surface_width,
-                    .height = surface_height,
-                },
-        },
+        ::VkRect2D{.offset =
+                       {
+                           .x = 0,
+                           .y = 0,
+                       },
+                   .extent = surface_extent},
     };
 
     ::VkPipelineViewportStateCreateInfo viewport_state_info{
@@ -820,10 +823,8 @@ class Device final {
       ::VkRenderPass render_pass, std::span<::VkImageView> image_views) {
     std::vector<Framebuffer> result;
     for (auto&& image_view : image_views) {
-      result.push_back(
-          Framebuffer{device_, render_pass, image_view,
-                      surface_capabilities_().currentExtent.width,
-                      surface_capabilities_().currentExtent.height});
+      result.push_back(Framebuffer{device_, render_pass, image_view,
+                                   surface_capabilities_().currentExtent});
     }
     return result;
   }
@@ -836,13 +837,12 @@ class Device final {
                                             ::VkShaderModule fragment_shader,
                                             ::VkPipelineLayout pipeline_layout,
                                             ::VkRenderPass render_pass) {
-    return GraphicsPipeline{device_,
-                            vertex_shader,
-                            fragment_shader,
-                            pipeline_layout,
-                            render_pass,
-                            surface_capabilities_().currentExtent.width,
-                            surface_capabilities_().currentExtent.height};
+    return GraphicsPipeline{device_,          //
+                            vertex_shader,    //
+                            fragment_shader,  //
+                            pipeline_layout,  //
+                            render_pass,      //
+                            surface_capabilities_().currentExtent};
   }
 
  private:
