@@ -99,6 +99,11 @@ class MemoryAllocateInfo final            //
           ::VkMemoryAllocateInfo,         //
           VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO> {};
 
+class CommandBufferAllocateInfo final     //
+    : public impl::TypeValueAdapterBase<  //
+          ::VkCommandBufferAllocateInfo,  //
+          VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO> {};
+
 class CommandPoolCreateInfo final         //
     : public impl::TypeValueAdapterBase<  //
           ::VkCommandPoolCreateInfo,      //
@@ -497,15 +502,13 @@ class HandleBase {
   }
 
   HandleBase(HandleBase&& that) noexcept
-      : handle_{that.handle_}, info_{std::move(that.info_)} {
-    that.handle_ = VK_NULL_HANDLE;
-  }
+      : handle_{std::exchange(that.handle_, VK_NULL_HANDLE)},
+        info_{std::move(that.info_)} {}
 
   HandleBase& operator=(HandleBase&& that) noexcept {
     if (this != &that) {
-      using std::swap;
-      swap(this->handle_, that.handle_);
-      swap(this->info_, that.info_);
+      handle_ = std::exchange(that.handle_, VK_NULL_HANDLE);
+      info_ = std::move(that.info_);
     }
     return *this;
   }
@@ -550,19 +553,15 @@ class ParentedHandleBase {
   }
 
   ParentedHandleBase(ParentedHandleBase&& that) noexcept
-      : parent_{that.parent_},
-        handle_{that.handle_},
-        info_{std::move(that.info_)} {
-    that.parent_ = VK_NULL_HANDLE;
-    that.handle_ = VK_NULL_HANDLE;
-  }
+      : parent_{std::exchange(that.parent_, VK_NULL_HANDLE)},
+        handle_{std::exchange(that.handle_, VK_NULL_HANDLE)},
+        info_{std::move(that.info_)} {}
 
   ParentedHandleBase& operator=(ParentedHandleBase&& that) noexcept {
     if (this != &that) {
-      using std::swap;
-      swap(this->parent_, that.parent_);
-      swap(this->handle_, that.handle_);
-      swap(this->info_, that.info_);
+      parent_ = std::exchange(that.parent_, VK_NULL_HANDLE);
+      handle_ = std::exchange(that.handle_, VK_NULL_HANDLE);
+      info_ = std::move(that.info_);
     }
     return *this;
   }
@@ -795,6 +794,78 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(GraphicsPipeline, GraphicsPipelineBase);
 
 //------------------------------------------------------------------------------
 
+class CommandBufferBlock final {
+ public:
+  DECLARE_COPY_DELETE(CommandBufferBlock);
+
+  CommandBufferBlock() = default;
+  ~CommandBufferBlock() {
+    if (block_.size()) {
+      ::vkFreeCommandBuffers(device_, pool_, block_.size(), block_.data());
+    }
+  }
+
+  CommandBufferBlock(CommandBufferBlock&& that) noexcept
+      : device_{std::exchange(that.device_, VK_NULL_HANDLE)},
+        pool_{std::exchange(that.pool_, VK_NULL_HANDLE)},
+        block_{std::move(that.block_)},
+        info_{std::move(that.info_)} {}
+
+  CommandBufferBlock& operator=(CommandBufferBlock&& that) noexcept {
+    if (this != &that) {
+      device_ = std::exchange(that.device_, VK_NULL_HANDLE);
+      pool_ = std::exchange(that.pool_, VK_NULL_HANDLE);
+      block_ = std::move(that.block_);
+      info_ = std::move(that.info_);
+    }
+    return *this;
+  }
+
+  explicit CommandBufferBlock(::VkDevice device,
+                              const ::VkCommandBufferAllocateInfo& info)
+      : device_{device}, info_{info} {
+    CHECK_PRECONDITION(device_ != VK_NULL_HANDLE);
+    pool_ = info.commandPool;
+    block_.resize(info.commandBufferCount);
+    ::VkResult result =
+        ::vkAllocateCommandBuffers(device_, info_.address(), block_.data());
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
+  explicit operator bool() const { return device_ != VK_NULL_HANDLE; }
+
+  const ::VkCommandBufferAllocateInfo& info() const { return info_(); }
+
+  void acquire_command_buffers(std::uint32_t next_count) {
+    auto curr_count = narrow_cast<std::uint32_t>(block_.size());
+    if (curr_count < next_count) {
+      block_.resize(next_count);
+
+      ::VkCommandBufferAllocateInfo delta_info{
+          .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+          .commandPool = pool_,
+          .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+          .commandBufferCount = next_count - curr_count,
+      };
+      ::VkResult result = ::vkAllocateCommandBuffers(
+          device_, std::addressof(delta_info), block_.data() + curr_count);
+
+      CHECK_POSTCONDITION(result == VK_SUCCESS);
+    } else if (curr_count > next_count) {
+      ::vkFreeCommandBuffers(device_, pool_, curr_count - next_count,
+                             block_.data() + next_count);
+      block_.resize(next_count);
+    }
+  }
+
+ private:
+  ::VkDevice device_ = VK_NULL_HANDLE;
+  ::VkCommandPool pool_ = VK_NULL_HANDLE;
+  std::vector<::VkCommandBuffer> block_;
+  CommandBufferAllocateInfo info_;
+};
+//------------------------------------------------------------------------------
+
 inline bool has_any_flags(::VkFlags flags, ::VkFlags query) {
   return (flags & query);
 }
@@ -863,23 +934,19 @@ class DebugMessenger final {
   }
 
   DebugMessenger(DebugMessenger&& that) noexcept
-      : instance_{that.instance_},
-        handle_{that.handle_},
-        submit_{that.submit_},
-        create_{that.create_},
-        destroy_{that.destroy_} {
-    that.instance_ = VK_NULL_HANDLE;
-    that.handle_ = VK_NULL_HANDLE;
-  }
+      : instance_{std::exchange(that.instance_, VK_NULL_HANDLE)},
+        handle_{std::exchange(that.handle_, VK_NULL_HANDLE)},
+        submit_{std::exchange(that.submit_, nullptr)},
+        create_{std::exchange(that.create_, nullptr)},
+        destroy_{std::exchange(that.destroy_, nullptr)} {}
 
   DebugMessenger& operator=(DebugMessenger&& that) noexcept {
     if (this != &that) {
-      using std::swap;
-      swap(this->instance_, that.instance_);
-      swap(this->handle_, that.handle_);
-      swap(this->submit_, that.submit_);
-      swap(this->create_, that.create_);
-      swap(this->destroy_, that.destroy_);
+      instance_ = std::exchange(that.instance_, VK_NULL_HANDLE);
+      handle_ = std::exchange(that.handle_, VK_NULL_HANDLE);
+      submit_ = std::exchange(that.submit_, nullptr);
+      create_ = std::exchange(that.create_, nullptr);
+      destroy_ = std::exchange(that.destroy_, nullptr);
     }
     return *this;
   }
