@@ -72,13 +72,15 @@ int main() {
                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   memory.copy_initialize(vert_buffer_bytes);
 
-  auto command_pool = device.create_command_pool(queue.family_index());
   auto swapchain = device.create_swapchain(VK_FORMAT_B8G8R8A8_UNORM,
                                            VK_PRESENT_MODE_FIFO_KHR);
   auto swapchain_image_views = swapchain.create_image_views();
   auto render_pass = device.create_render_pass(VK_FORMAT_B8G8R8A8_UNORM);
   auto frambuffers =
       device.create_framebuffers(render_pass, swapchain_image_views);
+  auto command_pool = device.create_command_pool(queue.family_index());
+  auto command_buffer_block = device.allocate_command_buffer_block(
+      command_pool, swapchain_image_views.size());
 
   auto vert_shader = device.create_shader_module(vertex_shader_spirv_bin);
   auto frag_shader = device.create_shader_module(fragment_shader_spirv_bin);

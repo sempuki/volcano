@@ -139,6 +139,35 @@ class DeviceMemory final {
 };
 
 //------------------------------------------------------------------------------
+class CommandBufferBlock final {
+ public:
+  DECLARE_COPY_DELETE(CommandBufferBlock);
+  DECLARE_MOVE_DEFAULT(CommandBufferBlock);
+
+  CommandBufferBlock() = delete;
+  ~CommandBufferBlock() = default;
+
+  void acquire_command_buffers(std::uint32_t count) {
+    command_buffers_.acquire_command_buffers(count);
+  }
+
+ private:
+  friend class Device;
+
+  explicit CommandBufferBlock(::VkDevice device, ::VkCommandPool pool,
+                              std::uint32_t count) {
+    command_buffers_ = vk::CommandBufferBlock{
+        device, ::VkCommandBufferAllocateInfo{
+                    .commandPool = pool,
+                    .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                    .commandBufferCount = count,
+                }};
+  }
+
+  vk::CommandBufferBlock command_buffers_;
+};
+
+//------------------------------------------------------------------------------
 class CommandPool final {
  public:
   DECLARE_COPY_DELETE(CommandPool);
@@ -146,6 +175,8 @@ class CommandPool final {
 
   CommandPool() = delete;
   ~CommandPool() = default;
+
+  operator ::VkCommandPool() { return command_pool_; }
 
  private:
   friend class Device;
@@ -675,6 +706,11 @@ class Device final {
     return DeviceMemory{device_, byte_offset,
                         buffer.memory_requirements_().size, memory_type_index,
                         buffer.buffer_};
+  }
+
+  CommandBufferBlock allocate_command_buffer_block(::VkCommandPool command_pool,
+                                                   std::uint32_t count) {
+    return CommandBufferBlock{device_, command_pool, count};
   }
 
   CommandPool create_command_pool(std::uint32_t queue_family_index) {
