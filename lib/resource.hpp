@@ -139,6 +139,61 @@ class DeviceMemory final {
 };
 
 //------------------------------------------------------------------------------
+class RenderPassCommandBuffer final {
+ public:
+  DECLARE_COPY_DELETE(RenderPassCommandBuffer);
+  DECLARE_MOVE_DEFAULT(RenderPassCommandBuffer);
+
+  RenderPassCommandBuffer() = delete;
+  ~RenderPassCommandBuffer() = default;
+
+ private:
+  friend class CommandBufferBlock;
+
+  explicit RenderPassCommandBuffer(::VkCommandBuffer command_buffer,
+                                   ::VkRenderPass render_pass,
+                                   ::VkFramebuffer framebuffer,
+                                   std::uint32_t surface_width,
+                                   std::uint32_t surface_height) {
+    static std::array<::VkClearValue, 1>  //
+        clear_values{::VkClearValue{
+            .color =
+                {
+                    .float32 = {0.1f, 0.1f, 0.1f, 1.0f},
+                },
+        }};
+
+    command_ = vk::RenderPassCommandBuffer{
+        vk::CommandBuffer{
+            command_buffer,
+            ::VkCommandBufferBeginInfo{
+                .flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
+            }},
+        ::VkRenderPassBeginInfo{
+            .renderPass = render_pass,
+            .framebuffer = framebuffer,
+            .renderArea =
+                {
+                    .offset =
+                        {
+                            .x = 0,
+                            .y = 0,
+                        },
+                    .extent =
+                        {
+                            .width = surface_width,
+                            .height = surface_height,
+                        },
+                },
+            .clearValueCount = narrow_cast<std::uint32_t>(clear_values.size()),
+            .pClearValues = clear_values.data(),
+        }};
+  }
+
+  vk::RenderPassCommandBuffer command_;
+};
+
+//------------------------------------------------------------------------------
 class CommandBufferBlock final {
  public:
   DECLARE_COPY_DELETE(CommandBufferBlock);

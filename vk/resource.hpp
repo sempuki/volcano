@@ -104,6 +104,11 @@ class CommandBufferAllocateInfo final     //
           ::VkCommandBufferAllocateInfo,  //
           VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO> {};
 
+class CommandBufferBeginInfo final        //
+    : public impl::TypeValueAdapterBase<  //
+          ::VkCommandBufferBeginInfo,     //
+          VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO> {};
+
 class CommandPoolCreateInfo final         //
     : public impl::TypeValueAdapterBase<  //
           ::VkCommandPoolCreateInfo,      //
@@ -113,11 +118,6 @@ class ImageViewCreateInfo final           //
     : public impl::TypeValueAdapterBase<  //
           ::VkImageViewCreateInfo,        //
           VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO> {};
-
-class RenderPassCreateInfo final          //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkRenderPassCreateInfo,       //
-          VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO> {};
 
 class PipelineLayoutCreateInfo final      //
     : public impl::TypeValueAdapterBase<  //
@@ -148,6 +148,16 @@ class PipelineShaderStageCreateInfo final     //
     : public impl::TypeValueAdapterBase<      //
           ::VkPipelineShaderStageCreateInfo,  //
           VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO> {};
+
+class RenderPassCreateInfo final          //
+    : public impl::TypeValueAdapterBase<  //
+          ::VkRenderPassCreateInfo,       //
+          VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO> {};
+
+class RenderPassBeginInfo final           //
+    : public impl::TypeValueAdapterBase<  //
+          ::VkRenderPassBeginInfo,        //
+          VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO> {};
 
 //------------------------------------------------------------------------------
 
@@ -794,6 +804,92 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(GraphicsPipeline, GraphicsPipelineBase);
 
 //------------------------------------------------------------------------------
 
+class CommandBuffer final {
+ public:
+  DECLARE_COPY_DELETE(CommandBuffer);
+
+  CommandBuffer() = default;
+  ~CommandBuffer() {
+    if (handle_) {
+      ::vkEndCommandBuffer(handle_);
+    }
+  }
+
+  CommandBuffer(CommandBuffer&& that) noexcept
+      : handle_{std::exchange(that.handle_, VK_NULL_HANDLE)},
+        info_{std::move(that.info_)} {}
+
+  CommandBuffer& operator=(CommandBuffer&& that) noexcept {
+    if (this != &that) {
+      handle_ = std::exchange(that.handle_, VK_NULL_HANDLE);
+      info_ = std::move(that.info_);
+    }
+    return *this;
+  }
+
+  explicit CommandBuffer(::VkCommandBuffer handle,
+                         const ::VkCommandBufferBeginInfo& info)
+      : handle_{handle}, info_{info} {
+    CHECK_PRECONDITION(handle_ != VK_NULL_HANDLE);
+    ::VkResult result = ::vkBeginCommandBuffer(handle_, info_.address());
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
+  explicit operator bool() const { return handle_ != VK_NULL_HANDLE; }
+  operator ::VkCommandBuffer() const { return handle_; }
+
+  ::VkCommandBuffer handle() const { return handle_; }
+  const ::VkCommandBufferBeginInfo& info() const { return info_(); }
+
+ private:
+  ::VkCommandBuffer handle_ = VK_NULL_HANDLE;
+  CommandBufferBeginInfo info_;
+};
+
+//------------------------------------------------------------------------------
+
+class RenderPassCommandBuffer final {
+ public:
+  DECLARE_COPY_DELETE(RenderPassCommandBuffer);
+
+  RenderPassCommandBuffer() = default;
+  ~RenderPassCommandBuffer() {
+    if (command_) {
+      ::vkCmdEndRenderPass(command_);
+    }
+  }
+
+  RenderPassCommandBuffer(RenderPassCommandBuffer&& that) noexcept
+      : command_{std::move(that.command_)}, info_{std::move(that.info_)} {}
+
+  RenderPassCommandBuffer& operator=(RenderPassCommandBuffer&& that) noexcept {
+    if (this != &that) {
+      command_ = std::move(that.command_);
+      info_ = std::move(that.info_);
+    }
+    return *this;
+  }
+
+  explicit RenderPassCommandBuffer(CommandBuffer command,
+                                   const ::VkRenderPassBeginInfo& info)
+      : command_{std::move(command)}, info_{info} {
+    ::vkCmdBeginRenderPass(command_, info_.address(),
+                           VK_SUBPASS_CONTENTS_INLINE);
+  }
+
+  explicit operator bool() const { return command_; }
+  operator ::VkCommandBuffer() const { return command_; }
+
+  ::VkCommandBuffer handle() const { return command_; }
+  const ::VkRenderPassBeginInfo& info() const { return info_(); }
+
+ private:
+  CommandBuffer command_;
+  RenderPassBeginInfo info_;
+};
+
+//------------------------------------------------------------------------------
+
 class CommandBufferBlock final {
  public:
   DECLARE_COPY_DELETE(CommandBufferBlock);
@@ -864,6 +960,7 @@ class CommandBufferBlock final {
   std::vector<::VkCommandBuffer> block_;
   CommandBufferAllocateInfo info_;
 };
+
 //------------------------------------------------------------------------------
 
 inline bool has_any_flags(::VkFlags flags, ::VkFlags query) {
