@@ -58,8 +58,8 @@ int main() {
       "hello-window", Window::Geometry{.width = 800, .height = 600}  //
   );
 
-  auto instance = application.create_instance(  //
-      {}, window->required_extensions(), DebugLevel::VERBOSE);
+  auto instance = application.create_instance({}, window->required_extensions(),
+                                              DebugLevel::VERBOSE);
   auto surface = window->create_surface(instance);
   auto device = instance.create_device(surface);
 
@@ -76,11 +76,18 @@ int main() {
                                            VK_PRESENT_MODE_FIFO_KHR);
   auto swapchain_image_views = swapchain.create_image_views();
   auto render_pass = device.create_render_pass(VK_FORMAT_B8G8R8A8_UNORM);
-  auto frambuffers =
+  auto framebuffers =
       device.create_framebuffers(render_pass, swapchain_image_views);
   auto command_pool = device.create_command_pool(queue.family_index());
   auto command_buffer_block = device.allocate_command_buffer_block(
       command_pool, swapchain_image_views.size());
+
+  std::vector<RenderPassCommandBuffer> render_pass_commands;
+  for (std::uint32_t i = 0; i < framebuffers.size(); ++i) {
+    render_pass_commands.push_back(
+        command_buffer_block.create_render_pass_command_buffer(
+            i, render_pass, framebuffers[i], framebuffers[i].extent()));
+  }
 
   auto vert_shader = device.create_shader_module(vertex_shader_spirv_bin);
   auto frag_shader = device.create_shader_module(fragment_shader_spirv_bin);

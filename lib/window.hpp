@@ -27,6 +27,8 @@ class Window {
     renderer_ = std::move(renderer);
   }
 
+  const Geometry& geometry() const { return geometry_; }
+
   virtual std::span<const char*> required_extensions() const = 0;
   virtual ::VkSurfaceKHR create_surface(::VkInstance instance) = 0;
   virtual void show() = 0;
