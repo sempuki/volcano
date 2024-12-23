@@ -69,6 +69,8 @@ class Buffer final {
   Buffer() = delete;
   ~Buffer() = default;
 
+  operator ::VkBuffer() { return buffer_; }
+
  private:
   friend class Device;
 
@@ -146,6 +148,17 @@ class RenderPassCommandBuffer final {
 
   RenderPassCommandBuffer() = delete;
   ~RenderPassCommandBuffer() = default;
+
+  void bind(::VkPipeline pipeline) { command_.bind_pipeline(pipeline); }
+
+  void bind(std::uint32_t vertex_buffer_binding,
+            std::span<::VkBuffer> vertex_buffers,
+            std::span<::VkDeviceSize> vertex_buffer_offsets) {
+    command_.bind_vertex_buffers(vertex_buffer_binding, vertex_buffers,
+                                 vertex_buffer_offsets);
+  }
+
+  void draw(std::uint32_t vertex_count) { command_.draw(vertex_count); }
 
  private:
   friend class CommandBufferBlock;
@@ -454,6 +467,8 @@ class GraphicsPipeline final {
   GraphicsPipeline() = delete;
   ~GraphicsPipeline() = default;
 
+  operator ::VkPipeline() { return pipeline_; }
+
  private:
   friend class Device;
 
@@ -584,7 +599,7 @@ class GraphicsPipeline final {
         .blendConstants = {0.f, 0.f, 0.f, 0.f},
     };
 
-    pipeline_layout_ = vk::GraphicsPipeline{
+    pipeline_ = vk::GraphicsPipeline{
         device,
         ::VkGraphicsPipelineCreateInfo{
             .stageCount = narrow_cast<std::uint32_t>(shader_stage_info.size()),
@@ -606,7 +621,7 @@ class GraphicsPipeline final {
         }};
   }
 
-  vk::GraphicsPipeline pipeline_layout_;
+  vk::GraphicsPipeline pipeline_;
 };
 
 //------------------------------------------------------------------------------
