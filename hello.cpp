@@ -44,6 +44,7 @@ int main() {
           vert_scale * std::sqrt(3.0f) * 0.25f,  // Y
           0.0f, 0.0f, 1.0f                       // RGB
       }};
+  const std::size_t vert_buffer_count = vert2f_color3f_pack.size();
   const std::size_t vert_buffer_byte_count =  //
       vert2f_color3f_pack.size() *            //
       vert2f_color3f_pack.front().size() *    //
@@ -64,12 +65,12 @@ int main() {
   auto device = instance.create_device(surface);
 
   auto queue = device.create_queue();
-  auto buffer = device.create_buffer(vert_buffer_byte_count,
-                                     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+  auto vertex_buffer = device.create_buffer(vert_buffer_byte_count,
+                                            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
   auto memory = device.allocate_device_memory(
-      buffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
-                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+      vertex_buffer, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
   memory.copy_initialize(vert_buffer_bytes);
 
   auto swapchain = device.create_swapchain(VK_FORMAT_B8G8R8A8_UNORM,
@@ -82,18 +83,22 @@ int main() {
   auto command_buffer_block = device.allocate_command_buffer_block(
       command_pool, swapchain_image_views.size());
 
-  std::vector<RenderPassCommandBuffer> render_pass_commands;
-  for (std::uint32_t i = 0; i < framebuffers.size(); ++i) {
-    render_pass_commands.push_back(
-        command_buffer_block.create_render_pass_command_buffer(
-            i, render_pass, framebuffers[i], framebuffers[i].extent()));
-  }
-
   auto vert_shader = device.create_shader_module(vertex_shader_spirv_bin);
   auto frag_shader = device.create_shader_module(fragment_shader_spirv_bin);
   auto pipeline_layout = device.create_pipeline_layout();
   auto graphics_pipeline = device.create_graphics_pipeline(
       vert_shader, frag_shader, pipeline_layout, render_pass);
+  std::array<::VkBuffer, 1> vertex_buffers{vertex_buffer};
+  std::array<::VkDeviceSize, 1> vertex_buffer_offsets{0};
+  std::vector<RenderPassCommandBuffer> render_pass_commands;
+  for (std::uint32_t i = 0; i < framebuffers.size(); ++i) {
+    render_pass_commands.push_back(
+        command_buffer_block.create_render_pass_command_buffer(
+            i, render_pass, framebuffers[i], framebuffers[i].extent()));
+    render_pass_commands.back().bind(graphics_pipeline);
+    render_pass_commands.back().bind(0, vertex_buffers, vertex_buffer_offsets);
+    render_pass_commands.back().draw(vert_buffer_count);
+  }
 
   window->set_renderer(device.create_surface_renderer());
   window->show();

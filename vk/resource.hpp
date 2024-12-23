@@ -882,6 +882,28 @@ class RenderPassCommandBuffer final {
   ::VkCommandBuffer handle() const { return command_; }
   const ::VkRenderPassBeginInfo& info() const { return info_(); }
 
+  void bind_pipeline(::VkPipeline pipeline) {
+    ::vkCmdBindPipeline(command_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+  }
+
+  void bind_vertex_buffers(std::uint32_t vertex_buffer_binding,
+                           std::span<::VkBuffer> vertex_buffers,
+                           std::span<::VkDeviceSize> vertex_buffer_offsets) {
+    CHECK_PRECONDITION(vertex_buffers.size() == vertex_buffer_offsets.size());
+    ::vkCmdBindVertexBuffers(
+        command_,                                           //
+        vertex_buffer_binding,                              //
+        narrow_cast<std::uint32_t>(vertex_buffers.size()),  //
+        vertex_buffers.data(),                              //
+        vertex_buffer_offsets.data());
+  }
+
+  void draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1,
+            std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) {
+    ::vkCmdDraw(command_, vertex_count, instance_count, first_vertex,
+                first_instance);
+  }
+
  private:
   CommandBuffer command_;
   RenderPassBeginInfo info_;
