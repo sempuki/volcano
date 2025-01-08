@@ -565,9 +565,29 @@ class HandleBase {
   HandleOpenInfoHolderType info_;
 };
 
+template <typename HandleType,                //
+          typename HandleOpenInfoType,        //
+          typename HandleOpenInfoHolderType,  //
+          auto OpenHandle,                    //
+          auto CloseHandle>                   //
+using DefaultHandleResourceBase =             //
+    HandleBase<                               //
+        HandleType,                           //
+        HandleOpenInfoType,                   //
+        HandleOpenInfoHolderType,             //
+        open_handle_adapter<                  //
+            HandleType,                       //
+            HandleOpenInfoType,               //
+            OpenHandle>,                      //
+        close_handle_adapter<                 //
+            HandleType,                       //
+            CloseHandle>>;
+
 //------------------------------------------------------------------------------
 
-template <typename ParentType, typename HandleType, typename HandleOpenInfoType,
+template <typename ParentType,          //
+          typename HandleType,          //
+          typename HandleOpenInfoType,  //
           auto OpenHandle>
 inline ::VkResult open_parented_handle_adapter(const ParentType& parent,
                                                const HandleOpenInfoType& info,
@@ -575,7 +595,9 @@ inline ::VkResult open_parented_handle_adapter(const ParentType& parent,
   return OpenHandle(parent, std::addressof(info), ALLOCATOR,
                     std::addressof(handle));
 }
-template <typename ParentType, typename HandleType, auto CloseHandle>
+template <typename ParentType,  //
+          typename HandleType,  //
+          auto CloseHandle>
 inline void close_parented_handle_adapter(const ParentType& parent,
                                           const HandleType& handle) {
   CloseHandle(parent, handle, ALLOCATOR);
@@ -651,22 +673,40 @@ class ParentedHandleBase {
   HandleType handle_ = VK_NULL_HANDLE;
   HandleOpenInfoHolderType info_;
 };
+
+template <typename ParentType,                //
+          typename HandleType,                //
+          typename HandleOpenInfoType,        //
+          typename HandleOpenInfoHolderType,  //
+          auto OpenHandle,                    //
+          auto CloseHandle>                   //
+using DefaultParentedHandleResourceBase =     //
+    ParentedHandleBase<                       //
+        ParentType,                           //
+        HandleType,                           //
+        HandleOpenInfoType,                   //
+        HandleOpenInfoHolderType,             //
+        open_parented_handle_adapter<         //
+            ParentType,                       //
+            HandleType,                       //
+            HandleOpenInfoType,               //
+            OpenHandle>,                      //
+        close_parented_handle_adapter<        //
+            ParentType,                       //
+            HandleType,                       //
+            CloseHandle>>;
+
 }  // namespace impl
 
 //------------------------------------------------------------------------------
 
-using InstanceBase =                 //
-    impl::HandleBase<                //
-        ::VkInstance,                //
-        ::VkInstanceCreateInfo,      //
-        InstanceCreateInfo,          //
-        impl::open_handle_adapter<   //
-            ::VkInstance,            //
-            ::VkInstanceCreateInfo,  //
-            ::vkCreateInstance>,     //
-        impl::close_handle_adapter<  //
-            ::VkInstance,            //
-            ::vkDestroyInstance>>;
+using InstanceBase =                  //
+    impl::DefaultHandleResourceBase<  //
+        ::VkInstance,                 //
+        ::VkInstanceCreateInfo,       //
+        InstanceCreateInfo,           //
+        ::vkCreateInstance,           //
+        ::vkDestroyInstance>;
 
 namespace impl {
 inline void end_device_adapter(::VkPhysicalDevice _, ::VkDevice device) {
@@ -688,36 +728,22 @@ using DeviceBase =                           //
         impl::end_device_adapter>;
 
 using BufferBase =                            //
-    impl::ParentedHandleBase<                 //
+    impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
         ::VkBuffer,                           //
         ::VkBufferCreateInfo,                 //
         BufferCreateInfo,                     //
-        impl::open_parented_handle_adapter<   //
-            ::VkDevice,                       //
-            ::VkBuffer,                       //
-            ::VkBufferCreateInfo,             //
-            ::vkCreateBuffer>,                //
-        impl::close_parented_handle_adapter<  //
-            ::VkDevice,                       //
-            ::VkBuffer,                       //
-            ::vkDestroyBuffer>>;
+        ::vkCreateBuffer,                     //
+        ::vkDestroyBuffer>;
 
 using DeviceMemoryBase =                      //
-    impl::ParentedHandleBase<                 //
+    impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
         ::VkDeviceMemory,                     //
         ::VkMemoryAllocateInfo,               //
         MemoryAllocateInfo,                   //
-        impl::open_parented_handle_adapter<   //
-            ::VkDevice,                       //
-            ::VkDeviceMemory,                 //
-            ::VkMemoryAllocateInfo,           //
-            ::vkAllocateMemory>,              //
-        impl::close_parented_handle_adapter<  //
-            ::VkDevice,                       //
-            ::VkDeviceMemory,                 //
-            ::vkFreeMemory>>;
+        ::vkAllocateMemory,                   //
+        ::vkFreeMemory>;
 
 struct QueueIndex final {
   std::uint32_t family_index = std::numeric_limits<std::uint32_t>::max();
@@ -771,100 +797,58 @@ using CommandBufferBase =                    //
         impl::end_command_buffer_adapter>;
 
 using CommandPoolBase =                       //
-    impl::ParentedHandleBase<                 //
+    impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
         ::VkCommandPool,                      //
         ::VkCommandPoolCreateInfo,            //
         CommandPoolCreateInfo,                //
-        impl::open_parented_handle_adapter<   //
-            ::VkDevice,                       //
-            ::VkCommandPool,                  //
-            ::VkCommandPoolCreateInfo,        //
-            ::vkCreateCommandPool>,           //
-        impl::close_parented_handle_adapter<  //
-            ::VkDevice,                       //
-            ::VkCommandPool,                  //
-            ::vkDestroyCommandPool>>;
+        ::vkCreateCommandPool,                //
+        ::vkDestroyCommandPool>;
 
 using ImageViewBase =                         //
-    impl::ParentedHandleBase<                 //
+    impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
         ::VkImageView,                        //
         ::VkImageViewCreateInfo,              //
         ImageViewCreateInfo,                  //
-        impl::open_parented_handle_adapter<   //
-            ::VkDevice,                       //
-            ::VkImageView,                    //
-            ::VkImageViewCreateInfo,          //
-            ::vkCreateImageView>,             //
-        impl::close_parented_handle_adapter<  //
-            ::VkDevice,                       //
-            ::VkImageView,                    //
-            ::vkDestroyImageView>>;
+        ::vkCreateImageView,                  //
+        ::vkDestroyImageView>;
 
 using RenderPassBase =                        //
-    impl::ParentedHandleBase<                 //
+    impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
         ::VkRenderPass,                       //
         ::VkRenderPassCreateInfo,             //
         RenderPassCreateInfo,                 //
-        impl::open_parented_handle_adapter<   //
-            ::VkDevice,                       //
-            ::VkRenderPass,                   //
-            ::VkRenderPassCreateInfo,         //
-            ::vkCreateRenderPass>,            //
-        impl::close_parented_handle_adapter<  //
-            ::VkDevice,                       //
-            ::VkRenderPass,                   //
-            ::vkDestroyRenderPass>>;
+        ::vkCreateRenderPass,                 //
+        ::vkDestroyRenderPass>;
 
 using PipelineLayoutBase =                    //
-    impl::ParentedHandleBase<                 //
+    impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
         ::VkPipelineLayout,                   //
         ::VkPipelineLayoutCreateInfo,         //
         PipelineLayoutCreateInfo,             //
-        impl::open_parented_handle_adapter<   //
-            ::VkDevice,                       //
-            ::VkPipelineLayout,               //
-            ::VkPipelineLayoutCreateInfo,     //
-            ::vkCreatePipelineLayout>,        //
-        impl::close_parented_handle_adapter<  //
-            ::VkDevice,                       //
-            ::VkPipelineLayout,               //
-            ::vkDestroyPipelineLayout>>;
+        ::vkCreatePipelineLayout,             //
+        ::vkDestroyPipelineLayout>;
 
 using ShaderModuleBase =                      //
-    impl::ParentedHandleBase<                 //
+    impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
         ::VkShaderModule,                     //
         ::VkShaderModuleCreateInfo,           //
         ShaderModuleCreateInfo,               //
-        impl::open_parented_handle_adapter<   //
-            ::VkDevice,                       //
-            ::VkShaderModule,                 //
-            ::VkShaderModuleCreateInfo,       //
-            ::vkCreateShaderModule>,          //
-        impl::close_parented_handle_adapter<  //
-            ::VkDevice,                       //
-            ::VkShaderModule,                 //
-            ::vkDestroyShaderModule>>;
+        ::vkCreateShaderModule,               //
+        ::vkDestroyShaderModule>;
 
 using SwapchainBase =                         //
-    impl::ParentedHandleBase<                 //
+    impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
         ::VkSwapchainKHR,                     //
         ::VkSwapchainCreateInfoKHR,           //
         SwapchainCreateInfo,                  //
-        impl::open_parented_handle_adapter<   //
-            ::VkDevice,                       //
-            ::VkSwapchainKHR,                 //
-            ::VkSwapchainCreateInfoKHR,       //
-            ::vkCreateSwapchainKHR>,          //
-        impl::close_parented_handle_adapter<  //
-            ::VkDevice,                       //
-            ::VkSwapchainKHR,                 //
-            ::vkDestroySwapchainKHR>>;
+        ::vkCreateSwapchainKHR,               //
+        ::vkDestroySwapchainKHR>;
 
 namespace impl {
 inline ::VkResult begin_surface_adapter(::VkInstance, Empty, ::VkSurfaceKHR) {
@@ -886,20 +870,13 @@ using SurfaceBase =                           //
             ::vkDestroySurfaceKHR>>;
 
 using FramebufferBase =                       //
-    impl::ParentedHandleBase<                 //
+    impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
         ::VkFramebuffer,                      //
         ::VkFramebufferCreateInfo,            //
         FramebufferCreateInfo,                //
-        impl::open_parented_handle_adapter<   //
-            ::VkDevice,                       //
-            ::VkFramebuffer,                  //
-            ::VkFramebufferCreateInfo,        //
-            ::vkCreateFramebuffer>,           //
-        impl::close_parented_handle_adapter<  //
-            ::VkDevice,                       //
-            ::VkFramebuffer,                  //
-            ::vkDestroyFramebuffer>>;
+        ::vkCreateFramebuffer,                //
+        ::vkDestroyFramebuffer>;
 
 namespace impl {
 inline ::VkResult create_graphics_pipeline_adapter(
