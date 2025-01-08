@@ -495,6 +495,16 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(SwapchainImages,  //
 
 //------------------------------------------------------------------------------
 namespace impl {
+template <typename HandleType, typename HandleOpenInfoType, auto OpenHandle>
+inline ::VkResult open_handle_adapter(const HandleOpenInfoType& info,
+                                      HandleType& handle) {
+  return OpenHandle(std::addressof(info), ALLOCATOR, std::addressof(handle));
+}
+template <typename HandleType, auto CloseHandle>
+inline void close_handle_adapter(const HandleType& handle) {
+  CloseHandle(handle, ALLOCATOR);
+}
+
 template <typename HandleType,                //
           typename HandleOpenInfoType,        //
           typename HandleOpenInfoHolderType,  //
@@ -506,55 +516,70 @@ class HandleBase {
 
   HandleBase() = default;
   ~HandleBase() {
-    if (handle_ != VK_NULL_HANDLE) {
-      CloseHandle(handle_, ALLOCATOR);
+    if (handle_) {
+      CloseHandle(handle_);
     }
   }
 
   HandleBase(HandleBase&& that) noexcept
-      : handle_{std::exchange(that.handle_, VK_NULL_HANDLE)},
+      : handle_{std::exchange(that.handle_, nullptr)},
         info_{std::move(that.info_)} {}
 
   HandleBase& operator=(HandleBase&& that) noexcept {
     if (this != &that) {
-      handle_ = std::exchange(that.handle_, VK_NULL_HANDLE);
+      handle_ = std::exchange(that.handle_, nullptr);
       info_ = std::move(that.info_);
     }
     return *this;
   }
 
   // Adopt Constructor.
-  explicit HandleBase(HandleType handle) : handle_{handle} {}
+  explicit HandleBase(HandleType handle) : handle_{std::move(handle)} {}
 
   // Adapt Constructor.
   explicit HandleBase(HandleType handle, const HandleOpenInfoType& info)
-      : handle_{handle}, info_{info} {
-    CHECK_PRECONDITION(handle_ != VK_NULL_HANDLE);
-    ::VkResult result =
-        OpenHandle(info_.address(), ALLOCATOR, std::addressof(handle_));
+      : handle_{std::move(handle)}, info_{info} {
+    CHECK_PRECONDITION(handle_);
+    ::VkResult result = OpenHandle(info_(), handle_);
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
   // Init Constructor.
   explicit HandleBase(const HandleOpenInfoType& info) : info_{info} {
-    ::VkResult result =
-        OpenHandle(info_.address(), ALLOCATOR, std::addressof(handle_));
+    ::VkResult result = OpenHandle(info_(), handle_);
     CHECK_POSTCONDITION(result == VK_SUCCESS);
-    CHECK_POSTCONDITION(handle_ != VK_NULL_HANDLE);
+    CHECK_POSTCONDITION(handle_);
   }
 
-  explicit operator bool() const { return handle_ != VK_NULL_HANDLE; }
+  // Empty Init Constructor.
+  HandleBase(std::nullptr_t _) {}
+
+  explicit operator bool() const { return handle_; }
   operator HandleType() const { return handle_; }
 
-  HandleType handle() const { return handle_; }
+  const HandleType& handle() const { return handle_; }
   const HandleOpenInfoType& info() const { return info_(); }
 
  private:
-  HandleType handle_ = VK_NULL_HANDLE;
+  HandleType handle_{};
   HandleOpenInfoHolderType info_;
 };
 
 //------------------------------------------------------------------------------
+
+template <typename ParentType, typename HandleType, typename HandleOpenInfoType,
+          auto OpenHandle>
+inline ::VkResult open_parented_handle_adapter(const ParentType& parent,
+                                               const HandleOpenInfoType& info,
+                                               HandleType& handle) {
+  return OpenHandle(parent, std::addressof(info), ALLOCATOR,
+                    std::addressof(handle));
+}
+template <typename ParentType, typename HandleType, auto CloseHandle>
+inline void close_parented_handle_adapter(const ParentType& parent,
+                                          const HandleType& handle) {
+  CloseHandle(parent, handle, ALLOCATOR);
+}
 
 template <typename ParentType,                //
           typename HandleType,                //
@@ -568,20 +593,20 @@ class ParentedHandleBase {
 
   ParentedHandleBase() = default;
   ~ParentedHandleBase() {
-    if (handle_ != VK_NULL_HANDLE) {
-      CloseHandle(parent_, handle_, ALLOCATOR);
+    if (handle_) {
+      CloseHandle(parent_, handle_);
     }
   }
 
   ParentedHandleBase(ParentedHandleBase&& that) noexcept
-      : parent_{std::exchange(that.parent_, VK_NULL_HANDLE)},
-        handle_{std::exchange(that.handle_, VK_NULL_HANDLE)},
+      : parent_{std::exchange(that.parent_, nullptr)},
+        handle_{std::exchange(that.handle_, nullptr)},
         info_{std::move(that.info_)} {}
 
   ParentedHandleBase& operator=(ParentedHandleBase&& that) noexcept {
     if (this != &that) {
-      parent_ = std::exchange(that.parent_, VK_NULL_HANDLE);
-      handle_ = std::exchange(that.handle_, VK_NULL_HANDLE);
+      parent_ = std::exchange(that.parent_, nullptr);
+      handle_ = std::exchange(that.handle_, nullptr);
       info_ = std::move(that.info_);
     }
     return *this;
@@ -589,36 +614,35 @@ class ParentedHandleBase {
 
   // Adopt Constructor.
   explicit ParentedHandleBase(ParentType parent, HandleType handle)
-      : parent_{parent}, handle_{handle} {}
+      : parent_{std::move(parent)}, handle_{std::move(handle)} {}
 
   // Adapt Constructor.
   explicit ParentedHandleBase(ParentType parent, HandleType handle,
                               const HandleOpenInfoType& info)
-      : parent_{parent}, handle_{handle}, info_{info} {
-    CHECK_PRECONDITION(parent_ != VK_NULL_HANDLE);
-    CHECK_PRECONDITION(handle_ != VK_NULL_HANDLE);
-    ::VkResult result = OpenHandle(parent_, info_.address(), ALLOCATOR,
-                                   std::addressof(handle_));
+      : parent_{std::move(parent)}, handle_{std::move(handle)}, info_{info} {
+    CHECK_PRECONDITION(parent_);
+    CHECK_PRECONDITION(handle_);
+    ::VkResult result = OpenHandle(parent_, info_(), handle_);
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
   // Init Constructor.
   explicit ParentedHandleBase(ParentType parent, const HandleOpenInfoType& info)
-      : parent_{parent}, info_{info} {
-    CHECK_PRECONDITION(parent_ != VK_NULL_HANDLE);
-    ::VkResult result = OpenHandle(parent_, info_.address(), ALLOCATOR,
-                                   std::addressof(handle_));
+      : parent_{std::move(parent)}, info_{info} {
+    CHECK_PRECONDITION(parent_);
+    ::VkResult result = OpenHandle(parent_, info_(), handle_);
     CHECK_POSTCONDITION(result == VK_SUCCESS);
-    CHECK_POSTCONDITION(handle_ != VK_NULL_HANDLE);
+    CHECK_POSTCONDITION(handle_);
   }
 
-  explicit operator bool() const {
-    return parent_ != VK_NULL_HANDLE && handle_ != VK_NULL_HANDLE;
-  }
+  // Empty Init Constructor.
+  ParentedHandleBase(std::nullptr_t _) {}
+
+  explicit operator bool() const { return parent_ && handle_; }
   operator HandleType() const { return handle_; }
 
-  ParentType parent() const { return parent_; }
-  HandleType handle() const { return handle_; }
+  const ParentType& parent() const { return parent_; }
+  const HandleType& handle() const { return handle_; }
 
   const HandleOpenInfoType& info() const { return info_(); }
 
@@ -631,47 +655,69 @@ class ParentedHandleBase {
 
 //------------------------------------------------------------------------------
 
-using InstanceBase =             //
-    impl::HandleBase<            //
-        ::VkInstance,            //
-        ::VkInstanceCreateInfo,  //
-        InstanceCreateInfo,      //
-        ::vkCreateInstance,      //
-        ::vkDestroyInstance>;
+using InstanceBase =                 //
+    impl::HandleBase<                //
+        ::VkInstance,                //
+        ::VkInstanceCreateInfo,      //
+        InstanceCreateInfo,          //
+        impl::open_handle_adapter<   //
+            ::VkInstance,            //
+            ::VkInstanceCreateInfo,  //
+            ::vkCreateInstance>,     //
+        impl::close_handle_adapter<  //
+            ::VkInstance,            //
+            ::vkDestroyInstance>>;
 
 namespace impl {
-inline void end_device_adapter(::VkPhysicalDevice _, ::VkDevice device,
-                               const VkAllocationCallbacks* allocator) {
-  ::vkDestroyDevice(device, allocator);
+inline void end_device_adapter(::VkPhysicalDevice _, ::VkDevice device) {
+  ::vkDestroyDevice(device, ALLOCATOR);
 }
 }  // namespace impl
 
-using DeviceBase =             //
-    impl::ParentedHandleBase<  //
-        ::VkPhysicalDevice,    //
-        ::VkDevice,            //
-        ::VkDeviceCreateInfo,  //
-        DeviceCreateInfo,      //
-        ::vkCreateDevice,      //
+using DeviceBase =                           //
+    impl::ParentedHandleBase<                //
+        ::VkPhysicalDevice,                  //
+        ::VkDevice,                          //
+        ::VkDeviceCreateInfo,                //
+        DeviceCreateInfo,                    //
+        impl::open_parented_handle_adapter<  //
+            ::VkPhysicalDevice,              //
+            ::VkDevice,                      //
+            ::VkDeviceCreateInfo,            //
+            ::vkCreateDevice>,               //
         impl::end_device_adapter>;
 
-using BufferBase =             //
-    impl::ParentedHandleBase<  //
-        ::VkDevice,            //
-        ::VkBuffer,            //
-        ::VkBufferCreateInfo,  //
-        BufferCreateInfo,      //
-        ::vkCreateBuffer,      //
-        ::vkDestroyBuffer>;
+using BufferBase =                            //
+    impl::ParentedHandleBase<                 //
+        ::VkDevice,                           //
+        ::VkBuffer,                           //
+        ::VkBufferCreateInfo,                 //
+        BufferCreateInfo,                     //
+        impl::open_parented_handle_adapter<   //
+            ::VkDevice,                       //
+            ::VkBuffer,                       //
+            ::VkBufferCreateInfo,             //
+            ::vkCreateBuffer>,                //
+        impl::close_parented_handle_adapter<  //
+            ::VkDevice,                       //
+            ::VkBuffer,                       //
+            ::vkDestroyBuffer>>;
 
-using DeviceMemoryBase =         //
-    impl::ParentedHandleBase<    //
-        ::VkDevice,              //
-        ::VkDeviceMemory,        //
-        ::VkMemoryAllocateInfo,  //
-        MemoryAllocateInfo,      //
-        ::vkAllocateMemory,      //
-        ::vkFreeMemory>;
+using DeviceMemoryBase =                      //
+    impl::ParentedHandleBase<                 //
+        ::VkDevice,                           //
+        ::VkDeviceMemory,                     //
+        ::VkMemoryAllocateInfo,               //
+        MemoryAllocateInfo,                   //
+        impl::open_parented_handle_adapter<   //
+            ::VkDevice,                       //
+            ::VkDeviceMemory,                 //
+            ::VkMemoryAllocateInfo,           //
+            ::vkAllocateMemory>,              //
+        impl::close_parented_handle_adapter<  //
+            ::VkDevice,                       //
+            ::VkDeviceMemory,                 //
+            ::vkFreeMemory>>;
 
 struct QueueIndex final {
   std::uint32_t family_index = std::numeric_limits<std::uint32_t>::max();
@@ -685,15 +731,15 @@ struct QueueIndex final {
 };
 
 namespace impl {
-inline ::VkResult begin_device_queue_adapter(::VkDevice device,               //
-                                             const QueueIndex* queue,         //
-                                             const VkAllocationCallbacks* _,  //
-                                             ::VkQueue* handle) {
-  ::vkGetDeviceQueue(device, queue->family_index, queue->index, handle);
+inline ::VkResult begin_device_queue_adapter(  //
+    ::VkDevice device,                         //
+    QueueIndex queue,                          //
+    ::VkQueue& handle) {
+  ::vkGetDeviceQueue(device, queue.family_index, queue.index,
+                     std::addressof(handle));
   return VK_SUCCESS;
 }
-inline void end_device_queue_adapter(::VkDevice _1, ::VkQueue _2,
-                                     const VkAllocationCallbacks* _3) {}
+inline void end_device_queue_adapter(::VkDevice, ::VkQueue) {}
 }  // namespace impl
 
 using QueueBase =                          //
@@ -706,13 +752,12 @@ using QueueBase =                          //
         impl::end_device_queue_adapter>;
 
 namespace impl {
-inline ::VkResult begin_command_buffer_adapter(
-    const ::VkCommandBufferBeginInfo* info, const VkAllocationCallbacks* _,
-    ::VkCommandBuffer* handle) {
-  return ::vkBeginCommandBuffer(*handle, info);
+inline ::VkResult begin_command_buffer_adapter(  //
+    const ::VkCommandBufferBeginInfo& info,      //
+    ::VkCommandBuffer handle) {
+  return ::vkBeginCommandBuffer(handle, std::addressof(info));
 }
-inline void end_command_buffer_adapter(::VkCommandBuffer handle,
-                                       const VkAllocationCallbacks* _) {
+inline void end_command_buffer_adapter(::VkCommandBuffer handle) {
   ::vkEndCommandBuffer(handle);
 }
 }  // namespace impl
@@ -725,96 +770,145 @@ using CommandBufferBase =                    //
         impl::begin_command_buffer_adapter,  //
         impl::end_command_buffer_adapter>;
 
-using CommandPoolBase =             //
-    impl::ParentedHandleBase<       //
-        ::VkDevice,                 //
-        ::VkCommandPool,            //
-        ::VkCommandPoolCreateInfo,  //
-        CommandPoolCreateInfo,      //
-        ::vkCreateCommandPool,      //
-        ::vkDestroyCommandPool>;
+using CommandPoolBase =                       //
+    impl::ParentedHandleBase<                 //
+        ::VkDevice,                           //
+        ::VkCommandPool,                      //
+        ::VkCommandPoolCreateInfo,            //
+        CommandPoolCreateInfo,                //
+        impl::open_parented_handle_adapter<   //
+            ::VkDevice,                       //
+            ::VkCommandPool,                  //
+            ::VkCommandPoolCreateInfo,        //
+            ::vkCreateCommandPool>,           //
+        impl::close_parented_handle_adapter<  //
+            ::VkDevice,                       //
+            ::VkCommandPool,                  //
+            ::vkDestroyCommandPool>>;
 
-using ImageViewBase =             //
-    impl::ParentedHandleBase<     //
-        ::VkDevice,               //
-        ::VkImageView,            //
-        ::VkImageViewCreateInfo,  //
-        ImageViewCreateInfo,      //
-        ::vkCreateImageView,      //
-        ::vkDestroyImageView>;
+using ImageViewBase =                         //
+    impl::ParentedHandleBase<                 //
+        ::VkDevice,                           //
+        ::VkImageView,                        //
+        ::VkImageViewCreateInfo,              //
+        ImageViewCreateInfo,                  //
+        impl::open_parented_handle_adapter<   //
+            ::VkDevice,                       //
+            ::VkImageView,                    //
+            ::VkImageViewCreateInfo,          //
+            ::vkCreateImageView>,             //
+        impl::close_parented_handle_adapter<  //
+            ::VkDevice,                       //
+            ::VkImageView,                    //
+            ::vkDestroyImageView>>;
 
-using RenderPassBase =             //
-    impl::ParentedHandleBase<      //
-        ::VkDevice,                //
-        ::VkRenderPass,            //
-        ::VkRenderPassCreateInfo,  //
-        RenderPassCreateInfo,      //
-        ::vkCreateRenderPass,      //
-        ::vkDestroyRenderPass>;
+using RenderPassBase =                        //
+    impl::ParentedHandleBase<                 //
+        ::VkDevice,                           //
+        ::VkRenderPass,                       //
+        ::VkRenderPassCreateInfo,             //
+        RenderPassCreateInfo,                 //
+        impl::open_parented_handle_adapter<   //
+            ::VkDevice,                       //
+            ::VkRenderPass,                   //
+            ::VkRenderPassCreateInfo,         //
+            ::vkCreateRenderPass>,            //
+        impl::close_parented_handle_adapter<  //
+            ::VkDevice,                       //
+            ::VkRenderPass,                   //
+            ::vkDestroyRenderPass>>;
 
-using PipelineLayoutBase =             //
-    impl::ParentedHandleBase<          //
-        ::VkDevice,                    //
-        ::VkPipelineLayout,            //
-        ::VkPipelineLayoutCreateInfo,  //
-        PipelineLayoutCreateInfo,      //
-        ::vkCreatePipelineLayout,      //
-        ::vkDestroyPipelineLayout>;
+using PipelineLayoutBase =                    //
+    impl::ParentedHandleBase<                 //
+        ::VkDevice,                           //
+        ::VkPipelineLayout,                   //
+        ::VkPipelineLayoutCreateInfo,         //
+        PipelineLayoutCreateInfo,             //
+        impl::open_parented_handle_adapter<   //
+            ::VkDevice,                       //
+            ::VkPipelineLayout,               //
+            ::VkPipelineLayoutCreateInfo,     //
+            ::vkCreatePipelineLayout>,        //
+        impl::close_parented_handle_adapter<  //
+            ::VkDevice,                       //
+            ::VkPipelineLayout,               //
+            ::vkDestroyPipelineLayout>>;
 
-using ShaderModuleBase =             //
-    impl::ParentedHandleBase<        //
-        ::VkDevice,                  //
-        ::VkShaderModule,            //
-        ::VkShaderModuleCreateInfo,  //
-        ShaderModuleCreateInfo,      //
-        ::vkCreateShaderModule,      //
-        ::vkDestroyShaderModule>;
+using ShaderModuleBase =                      //
+    impl::ParentedHandleBase<                 //
+        ::VkDevice,                           //
+        ::VkShaderModule,                     //
+        ::VkShaderModuleCreateInfo,           //
+        ShaderModuleCreateInfo,               //
+        impl::open_parented_handle_adapter<   //
+            ::VkDevice,                       //
+            ::VkShaderModule,                 //
+            ::VkShaderModuleCreateInfo,       //
+            ::vkCreateShaderModule>,          //
+        impl::close_parented_handle_adapter<  //
+            ::VkDevice,                       //
+            ::VkShaderModule,                 //
+            ::vkDestroyShaderModule>>;
 
-using SwapchainBase =                //
-    impl::ParentedHandleBase<        //
-        ::VkDevice,                  //
-        ::VkSwapchainKHR,            //
-        ::VkSwapchainCreateInfoKHR,  //
-        SwapchainCreateInfo,         //
-        ::vkCreateSwapchainKHR,      //
-        ::vkDestroySwapchainKHR>;
+using SwapchainBase =                         //
+    impl::ParentedHandleBase<                 //
+        ::VkDevice,                           //
+        ::VkSwapchainKHR,                     //
+        ::VkSwapchainCreateInfoKHR,           //
+        SwapchainCreateInfo,                  //
+        impl::open_parented_handle_adapter<   //
+            ::VkDevice,                       //
+            ::VkSwapchainKHR,                 //
+            ::VkSwapchainCreateInfoKHR,       //
+            ::vkCreateSwapchainKHR>,          //
+        impl::close_parented_handle_adapter<  //
+            ::VkDevice,                       //
+            ::VkSwapchainKHR,                 //
+            ::vkDestroySwapchainKHR>>;
 
 namespace impl {
-inline ::VkResult begin_surface_adapter(::VkInstance _1,                  //
-                                        const Empty* _2,                  //
-                                        const VkAllocationCallbacks* _3,  //
-                                        ::VkSurfaceKHR* _4) {
+inline ::VkResult begin_surface_adapter(::VkInstance, Empty, ::VkSurfaceKHR) {
   CHECK_UNREACHABLE();
   return VK_SUCCESS;
 }
 }  // namespace impl
 
-using SurfaceBase =                   //
-    impl::ParentedHandleBase<         //
-        ::VkInstance,                 //
-        ::VkSurfaceKHR,               //
-        Empty,                        //
-        Empty,                        //
-        impl::begin_surface_adapter,  //
-        ::vkDestroySurfaceKHR>;
+using SurfaceBase =                           //
+    impl::ParentedHandleBase<                 //
+        ::VkInstance,                         //
+        ::VkSurfaceKHR,                       //
+        Empty,                                //
+        Empty,                                //
+        impl::begin_surface_adapter,          //
+        impl::close_parented_handle_adapter<  //
+            ::VkInstance,                     //
+            ::VkSurfaceKHR,                   //
+            ::vkDestroySurfaceKHR>>;
 
-using FramebufferBase =             //
-    impl::ParentedHandleBase<       //
-        ::VkDevice,                 //
-        ::VkFramebuffer,            //
-        ::VkFramebufferCreateInfo,  //
-        FramebufferCreateInfo,      //
-        ::vkCreateFramebuffer,      //
-        ::vkDestroyFramebuffer>;
+using FramebufferBase =                       //
+    impl::ParentedHandleBase<                 //
+        ::VkDevice,                           //
+        ::VkFramebuffer,                      //
+        ::VkFramebufferCreateInfo,            //
+        FramebufferCreateInfo,                //
+        impl::open_parented_handle_adapter<   //
+            ::VkDevice,                       //
+            ::VkFramebuffer,                  //
+            ::VkFramebufferCreateInfo,        //
+            ::vkCreateFramebuffer>,           //
+        impl::close_parented_handle_adapter<  //
+            ::VkDevice,                       //
+            ::VkFramebuffer,                  //
+            ::vkDestroyFramebuffer>>;
 
 namespace impl {
 inline ::VkResult create_graphics_pipeline_adapter(
-    ::VkDevice device,                         //
-    const VkGraphicsPipelineCreateInfo* info,  //
-    const VkAllocationCallbacks* _,            //
-    ::VkPipeline* handle) {
-  return ::vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, info, _,
-                                     handle);
+    ::VkDevice device,                           //
+    const ::VkGraphicsPipelineCreateInfo& info,  //
+    ::VkPipeline& handle) {
+  return ::vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
+                                     std::addressof(info), ALLOCATOR,
+                                     std::addressof(handle));
 }
 }  // namespace impl
 
@@ -825,7 +919,10 @@ using GraphicsPipelineBase =                     //
         ::VkGraphicsPipelineCreateInfo,          //
         GraphicsPipelineCreateInfo,              //
         impl::create_graphics_pipeline_adapter,  //
-        ::vkDestroyPipeline>;
+        impl::close_parented_handle_adapter<     //
+            ::VkDevice,                          //
+            ::VkPipeline,                        //
+            ::vkDestroyPipeline>>;
 
 //------------------------------------------------------------------------------
 
@@ -847,43 +944,34 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(GraphicsPipeline, GraphicsPipelineBase);
 
 //------------------------------------------------------------------------------
 
-class RenderPassCommandBuffer final {
+namespace impl {
+inline ::VkResult begin_render_pass_command_adapter(
+    const ::VkRenderPassBeginInfo& info, ::VkCommandBuffer handle) {
+  ::vkCmdBeginRenderPass(handle, std::addressof(info),
+                         VK_SUBPASS_CONTENTS_INLINE);
+  return VK_SUCCESS;
+}
+inline void end_render_pass_command_adapter(::VkCommandBuffer handle) {
+  ::vkCmdEndRenderPass(handle);
+}
+}  // namespace impl
+
+using RenderPassCommandBufferBase =               //
+    impl::HandleBase<                             //
+        CommandBuffer,                            //
+        ::VkRenderPassBeginInfo,                  //
+        RenderPassBeginInfo,                      //
+        impl::begin_render_pass_command_adapter,  //
+        impl::end_render_pass_command_adapter>;
+
+class RenderPassCommandBuffer final : public RenderPassCommandBufferBase {
+  using BaseType = RenderPassCommandBufferBase;
+
  public:
-  DECLARE_COPY_DELETE(RenderPassCommandBuffer);
-
-  RenderPassCommandBuffer() = default;
-  ~RenderPassCommandBuffer() {
-    if (command_) {
-      ::vkCmdEndRenderPass(command_);
-    }
-  }
-
-  RenderPassCommandBuffer(RenderPassCommandBuffer&& that) noexcept
-      : command_{std::move(that.command_)}, info_{std::move(that.info_)} {}
-
-  RenderPassCommandBuffer& operator=(RenderPassCommandBuffer&& that) noexcept {
-    if (this != &that) {
-      command_ = std::move(that.command_);
-      info_ = std::move(that.info_);
-    }
-    return *this;
-  }
-
-  explicit RenderPassCommandBuffer(CommandBuffer command,
-                                   const ::VkRenderPassBeginInfo& info)
-      : command_{std::move(command)}, info_{info} {
-    ::vkCmdBeginRenderPass(command_, info_.address(),
-                           VK_SUBPASS_CONTENTS_INLINE);
-  }
-
-  explicit operator bool() const { return command_; }
-  operator ::VkCommandBuffer() const { return command_; }
-
-  ::VkCommandBuffer handle() const { return command_; }
-  const ::VkRenderPassBeginInfo& info() const { return info_(); }
+  using BaseType::BaseType;
 
   void bind_pipeline(::VkPipeline pipeline) {
-    ::vkCmdBindPipeline(command_, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    ::vkCmdBindPipeline(handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
   }
 
   void bind_vertex_buffers(std::uint32_t vertex_buffer_binding,
@@ -891,7 +979,7 @@ class RenderPassCommandBuffer final {
                            std::span<::VkDeviceSize> vertex_buffer_offsets) {
     CHECK_PRECONDITION(vertex_buffers.size() == vertex_buffer_offsets.size());
     ::vkCmdBindVertexBuffers(
-        command_,                                           //
+        handle(),                                           //
         vertex_buffer_binding,                              //
         narrow_cast<std::uint32_t>(vertex_buffers.size()),  //
         vertex_buffers.data(),                              //
@@ -900,13 +988,9 @@ class RenderPassCommandBuffer final {
 
   void draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1,
             std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) {
-    ::vkCmdDraw(command_, vertex_count, instance_count, first_vertex,
+    ::vkCmdDraw(handle(), vertex_count, instance_count, first_vertex,
                 first_instance);
   }
-
- private:
-  CommandBuffer command_;
-  RenderPassBeginInfo info_;
 };
 
 //------------------------------------------------------------------------------

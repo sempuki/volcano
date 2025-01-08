@@ -88,6 +88,7 @@ int main() {
   auto pipeline_layout = device.create_pipeline_layout();
   auto graphics_pipeline = device.create_graphics_pipeline(
       vert_shader, frag_shader, pipeline_layout, render_pass);
+
   std::array<::VkBuffer, 1> vertex_buffers{vertex_buffer};
   std::array<::VkDeviceSize, 1> vertex_buffer_offsets{0};
   std::vector<RenderPassCommandBuffer> render_pass_commands;
