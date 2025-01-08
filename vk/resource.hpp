@@ -496,12 +496,12 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(SwapchainImages,  //
 //------------------------------------------------------------------------------
 namespace impl {
 template <typename HandleType, typename HandleOpenInfoType, auto OpenHandle>
-inline ::VkResult open_handle_adapter(const HandleOpenInfoType& info,
-                                      HandleType& handle) {
+inline ::VkResult open_handle_default_adapter(const HandleOpenInfoType& info,
+                                              HandleType& handle) {
   return OpenHandle(std::addressof(info), ALLOCATOR, std::addressof(handle));
 }
 template <typename HandleType, auto CloseHandle>
-inline void close_handle_adapter(const HandleType& handle) {
+inline void close_handle_default_adapter(const HandleType& handle) {
   CloseHandle(handle, ALLOCATOR);
 }
 
@@ -575,11 +575,11 @@ using DefaultHandleResourceBase =             //
         HandleType,                           //
         HandleOpenInfoType,                   //
         HandleOpenInfoHolderType,             //
-        open_handle_adapter<                  //
+        open_handle_default_adapter<          //
             HandleType,                       //
             HandleOpenInfoType,               //
             OpenHandle>,                      //
-        close_handle_adapter<                 //
+        close_handle_default_adapter<         //
             HandleType,                       //
             CloseHandle>>;
 
@@ -589,17 +589,17 @@ template <typename ParentType,          //
           typename HandleType,          //
           typename HandleOpenInfoType,  //
           auto OpenHandle>
-inline ::VkResult open_parented_handle_adapter(const ParentType& parent,
-                                               const HandleOpenInfoType& info,
-                                               HandleType& handle) {
+inline ::VkResult open_parented_handle_default_adapter(
+    const ParentType& parent, const HandleOpenInfoType& info,
+    HandleType& handle) {
   return OpenHandle(parent, std::addressof(info), ALLOCATOR,
                     std::addressof(handle));
 }
 template <typename ParentType,  //
           typename HandleType,  //
           auto CloseHandle>
-inline void close_parented_handle_adapter(const ParentType& parent,
-                                          const HandleType& handle) {
+inline void close_parented_handle_default_adapter(const ParentType& parent,
+                                                  const HandleType& handle) {
   CloseHandle(parent, handle, ALLOCATOR);
 }
 
@@ -674,26 +674,26 @@ class ParentedHandleBase {
   HandleOpenInfoHolderType info_;
 };
 
-template <typename ParentType,                //
-          typename HandleType,                //
-          typename HandleOpenInfoType,        //
-          typename HandleOpenInfoHolderType,  //
-          auto OpenHandle,                    //
-          auto CloseHandle>                   //
-using DefaultParentedHandleResourceBase =     //
-    ParentedHandleBase<                       //
-        ParentType,                           //
-        HandleType,                           //
-        HandleOpenInfoType,                   //
-        HandleOpenInfoHolderType,             //
-        open_parented_handle_adapter<         //
-            ParentType,                       //
-            HandleType,                       //
-            HandleOpenInfoType,               //
-            OpenHandle>,                      //
-        close_parented_handle_adapter<        //
-            ParentType,                       //
-            HandleType,                       //
+template <typename ParentType,                  //
+          typename HandleType,                  //
+          typename HandleOpenInfoType,          //
+          typename HandleOpenInfoHolderType,    //
+          auto OpenHandle,                      //
+          auto CloseHandle>                     //
+using DefaultParentedHandleResourceBase =       //
+    ParentedHandleBase<                         //
+        ParentType,                             //
+        HandleType,                             //
+        HandleOpenInfoType,                     //
+        HandleOpenInfoHolderType,               //
+        open_parented_handle_default_adapter<   //
+            ParentType,                         //
+            HandleType,                         //
+            HandleOpenInfoType,                 //
+            OpenHandle>,                        //
+        close_parented_handle_default_adapter<  //
+            ParentType,                         //
+            HandleType,                         //
             CloseHandle>>;
 
 }  // namespace impl
@@ -714,17 +714,17 @@ inline void end_device_adapter(::VkPhysicalDevice _, ::VkDevice device) {
 }
 }  // namespace impl
 
-using DeviceBase =                           //
-    impl::ParentedHandleBase<                //
-        ::VkPhysicalDevice,                  //
-        ::VkDevice,                          //
-        ::VkDeviceCreateInfo,                //
-        DeviceCreateInfo,                    //
-        impl::open_parented_handle_adapter<  //
-            ::VkPhysicalDevice,              //
-            ::VkDevice,                      //
-            ::VkDeviceCreateInfo,            //
-            ::vkCreateDevice>,               //
+using DeviceBase =                                   //
+    impl::ParentedHandleBase<                        //
+        ::VkPhysicalDevice,                          //
+        ::VkDevice,                                  //
+        ::VkDeviceCreateInfo,                        //
+        DeviceCreateInfo,                            //
+        impl::open_parented_handle_default_adapter<  //
+            ::VkPhysicalDevice,                      //
+            ::VkDevice,                              //
+            ::VkDeviceCreateInfo,                    //
+            ::vkCreateDevice>,                       //
         impl::end_device_adapter>;
 
 using BufferBase =                            //
@@ -857,16 +857,16 @@ inline ::VkResult begin_surface_adapter(::VkInstance, Empty, ::VkSurfaceKHR) {
 }
 }  // namespace impl
 
-using SurfaceBase =                           //
-    impl::ParentedHandleBase<                 //
-        ::VkInstance,                         //
-        ::VkSurfaceKHR,                       //
-        Empty,                                //
-        Empty,                                //
-        impl::begin_surface_adapter,          //
-        impl::close_parented_handle_adapter<  //
-            ::VkInstance,                     //
-            ::VkSurfaceKHR,                   //
+using SurfaceBase =                                   //
+    impl::ParentedHandleBase<                         //
+        ::VkInstance,                                 //
+        ::VkSurfaceKHR,                               //
+        Empty,                                        //
+        Empty,                                        //
+        impl::begin_surface_adapter,                  //
+        impl::close_parented_handle_default_adapter<  //
+            ::VkInstance,                             //
+            ::VkSurfaceKHR,                           //
             ::vkDestroySurfaceKHR>>;
 
 using FramebufferBase =                       //
@@ -889,16 +889,16 @@ inline ::VkResult create_graphics_pipeline_adapter(
 }
 }  // namespace impl
 
-using GraphicsPipelineBase =                     //
-    impl::ParentedHandleBase<                    //
-        ::VkDevice,                              //
-        ::VkPipeline,                            //
-        ::VkGraphicsPipelineCreateInfo,          //
-        GraphicsPipelineCreateInfo,              //
-        impl::create_graphics_pipeline_adapter,  //
-        impl::close_parented_handle_adapter<     //
-            ::VkDevice,                          //
-            ::VkPipeline,                        //
+using GraphicsPipelineBase =                          //
+    impl::ParentedHandleBase<                         //
+        ::VkDevice,                                   //
+        ::VkPipeline,                                 //
+        ::VkGraphicsPipelineCreateInfo,               //
+        GraphicsPipelineCreateInfo,                   //
+        impl::create_graphics_pipeline_adapter,       //
+        impl::close_parented_handle_default_adapter<  //
+            ::VkDevice,                               //
+            ::VkPipeline,                             //
             ::vkDestroyPipeline>>;
 
 //------------------------------------------------------------------------------
