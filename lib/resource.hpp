@@ -61,6 +61,48 @@ class Queue final {
 };
 
 //------------------------------------------------------------------------------
+class Semaphore final {
+ public:
+  DECLARE_COPY_DELETE(Semaphore);
+  DECLARE_MOVE_DEFAULT(Semaphore);
+
+  Semaphore() = delete;
+  ~Semaphore() = default;
+
+  operator ::VkSemaphore() { return semaphore_; }
+
+ private:
+  friend class Device;
+
+  explicit Semaphore(::VkDevice device) {
+    semaphore_ = vk::Semaphore{device, ::VkSemaphoreCreateInfo{}};
+  }
+
+  vk::Semaphore semaphore_;
+};
+
+//------------------------------------------------------------------------------
+class Fence final {
+ public:
+  DECLARE_COPY_DELETE(Fence);
+  DECLARE_MOVE_DEFAULT(Fence);
+
+  Fence() = delete;
+  ~Fence() = default;
+
+  operator ::VkFence() { return fence_; }
+
+ private:
+  friend class Device;
+
+  explicit Fence(::VkDevice device, ::VkFenceCreateFlags flags) {
+    fence_ = vk::Fence{device, ::VkFenceCreateInfo{.flags = flags}};
+  }
+
+  vk::Fence fence_;
+};
+
+//------------------------------------------------------------------------------
 class Buffer final {
  public:
   DECLARE_COPY_DELETE(Buffer);
@@ -858,6 +900,23 @@ class Device final {
                             pipeline_layout,  //
                             render_pass,      //
                             surface_capabilities_().currentExtent};
+  }
+
+  std::vector<Semaphore> create_semaphores(std::uint32_t count) {
+    std::vector<Semaphore> result;
+    for (std::uint32_t i = 0; i < count; ++i) {
+      result.push_back(Semaphore{device_});
+    }
+    return result;
+  }
+
+  std::vector<Fence> create_fences(std::uint32_t count,
+                                   ::VkFenceCreateFlags flags = 0) {
+    std::vector<Fence> result;
+    for (std::uint32_t i = 0; i < count; ++i) {
+      result.push_back(Fence{device_, flags});
+    }
+    return result;
   }
 
  private:

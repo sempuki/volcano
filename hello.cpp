@@ -83,6 +83,9 @@ int main() {
   auto command_buffer_block = device.allocate_command_buffer_block(
       command_pool, swapchain_image_views.size());
 
+  auto semaphores = device.create_semaphores(2);  // ...?
+  auto fences = device.create_fences(2, VK_FENCE_CREATE_SIGNALED_BIT);
+
   auto vert_shader = device.create_shader_module(vertex_shader_spirv_bin);
   auto frag_shader = device.create_shader_module(fragment_shader_spirv_bin);
   auto pipeline_layout = device.create_pipeline_layout();

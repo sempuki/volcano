@@ -23,15 +23,15 @@ inline const ::VkAllocationCallbacks* ALLOCATOR = nullptr;
 
 namespace impl {
 template <typename VkType>
-class MoveOnlyAdapterBase {
+class BoxAdapterBase {
  public:
-  DECLARE_COPY_DELETE(MoveOnlyAdapterBase);
-  DECLARE_MOVE_DEFAULT(MoveOnlyAdapterBase);
+  DECLARE_COPY_DELETE(BoxAdapterBase);
+  DECLARE_MOVE_DEFAULT(BoxAdapterBase);
 
-  MoveOnlyAdapterBase() = default;
-  ~MoveOnlyAdapterBase() = default;
+  BoxAdapterBase() = default;
+  ~BoxAdapterBase() = default;
 
-  MoveOnlyAdapterBase(const VkType& that)
+  BoxAdapterBase(const VkType& that)
       : vk_object_{std::make_unique<VkType>(that)} {}
 
   operator VkType&() { return *vk_object_; };
@@ -48,8 +48,8 @@ class MoveOnlyAdapterBase {
 };
 
 template <typename VkType, ::VkStructureType TypeValue>
-class TypeValueAdapterBase : public MoveOnlyAdapterBase<VkType> {
-  using BaseType = MoveOnlyAdapterBase<VkType>;
+class TypeValueAdapterBase : public BoxAdapterBase<VkType> {
+  using BaseType = BoxAdapterBase<VkType>;
 
  public:
   TypeValueAdapterBase() {
@@ -88,6 +88,16 @@ class DeviceQueueCreateInfo final         //
     : public impl::TypeValueAdapterBase<  //
           ::VkDeviceQueueCreateInfo,      //
           VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO> {};
+
+class SemaphoreCreateInfo final           //
+    : public impl::TypeValueAdapterBase<  //
+          ::VkSemaphoreCreateInfo,        //
+          VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO> {};
+
+class FenceCreateInfo final               //
+    : public impl::TypeValueAdapterBase<  //
+          ::VkFenceCreateInfo,            //
+          VK_STRUCTURE_TYPE_FENCE_CREATE_INFO> {};
 
 class BufferCreateInfo final              //
     : public impl::TypeValueAdapterBase<  //
@@ -727,6 +737,24 @@ using DeviceBase =                                   //
             ::vkCreateDevice>,                       //
         impl::end_device_adapter>;
 
+using SemaphoreBase =                         //
+    impl::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                           //
+        ::VkSemaphore,                        //
+        ::VkSemaphoreCreateInfo,              //
+        SemaphoreCreateInfo,                  //
+        ::vkCreateSemaphore,                  //
+        ::vkDestroySemaphore>;
+
+using FenceBase =                             //
+    impl::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                           //
+        ::VkFence,                            //
+        ::VkFenceCreateInfo,                  //
+        FenceCreateInfo,                      //
+        ::vkCreateFence,                      //
+        ::vkDestroyFence>;
+
 using BufferBase =                            //
     impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
@@ -905,6 +933,8 @@ using GraphicsPipelineBase =                          //
 
 DERIVE_FINAL_WITH_CONSTRUCTORS(Instance, InstanceBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Device, DeviceBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(Semaphore, SemaphoreBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(Fence, FenceBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Buffer, BufferBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Queue, QueueBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(DeviceMemory, DeviceMemoryBase);
