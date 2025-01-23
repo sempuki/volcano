@@ -178,8 +178,11 @@ int main() {
 
         return true;
       },
-      []() {
-        //
+      [swapchain_render_context = InOut(swapchain_render_context)]() {
+        // 1. Wait on a submission fence.
+        // 2. `vkAcquireNextImageKHR` the corresp. semaphore.
+        // 3. `vkQueueSubmit` command buffers to graphics queue.
+        // 4. `vkQueuePresentKHR` swapchain image to present queue.
       }));
 
   window->show();

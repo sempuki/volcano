@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <chrono>
 #include <functional>
 #include <map>
 #include <sstream>
@@ -91,6 +92,19 @@ class Fence final {
   ~Fence() = default;
 
   operator ::VkFence() { return fence_; }
+
+  void wait(std::chrono::nanoseconds timeout) {
+    ::VkResult result =
+        ::vkWaitForFences(fence_.parent(), 1, std::addressof(fence_.handle()),
+                          VK_TRUE, timeout.count());
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
+  void reset() {
+    ::VkResult result =
+        ::vkResetFences(fence_.parent(), 1, std::addressof(fence_.handle()));
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
 
  private:
   friend class Device;
