@@ -155,12 +155,22 @@ class PlatformWindow final : public Window {
   void show() override {
     ::glfwShowWindow(glfw_window_);
 
+    if (!renderer().HasSwapchain()) {
+      int width = 0, height = 0;
+      ::glfwGetWindowSize(glfw_window_, &width, &height);
+      CHECK_PRECONDITION(width > 0 && height > 0)
+
+      renderer().RecreateSwapchain(
+          {.width = static_cast<std::uint32_t>(width),
+           .height = static_cast<std::uint32_t>(height)});
+    }
+
     while (!impl::StaticState::instance().has_pending_errors() &&
            !::glfwWindowShouldClose(glfw_window_)) {
       if (renderer().HasSwapchain()) {
-        ::glfwPollEvents();  // do not block so I can paint
+        ::glfwPollEvents();  // Non-blocking.
       } else {
-        ::glfwWaitEvents();  // allows blocking if no events
+        ::glfwWaitEvents();  // Blocking.
       }
 
       if (renderer().HasSwapchain()) {

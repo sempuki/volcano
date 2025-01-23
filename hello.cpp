@@ -85,8 +85,7 @@ struct SwapchainRenderContext final {
 
   std::array<::VkBuffer, 1> vertex_buffers;
   std::array<::VkDeviceSize, 1> vertex_buffer_offsets{0};
-  std::vector<RenderPassCommandBuffer>
-      render_pass_commands;  // Must be reset from command pool.
+  std::vector<RenderPassCommandBuffer> render_pass_commands;
 
   std::vector<Fence> submission_fences;
   std::vector<Semaphore> render_complete;
@@ -159,6 +158,8 @@ int main() {
        command_pool = InOut(command_pool),                          //
        swapchain_render_context = InOut(swapchain_render_context)]  //
       (::VkExtent2D geometry) -> bool {
+        command_pool->reset();
+
         ::VkSwapchainKHR previous_swapchain = VK_NULL_HANDLE;
         if (*swapchain_render_context) {
           previous_swapchain = (*swapchain_render_context)->swapchain;
@@ -177,7 +178,9 @@ int main() {
 
         return true;
       },
-      []() {}));  //
+      []() {
+        //
+      }));
 
   window->show();
 }
