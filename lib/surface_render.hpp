@@ -14,13 +14,22 @@ class SurfaceRenderer final : public Renderer {
   SurfaceRenderer() = delete;
   virtual ~SurfaceRenderer() = default;
 
-  explicit SurfaceRenderer(
-      ::VkSurfaceKHR surface,
-      const ::VkSurfaceCapabilitiesKHR& surface_capabilities,
-      std::span<::VkSurfaceFormatKHR> surface_formats)
+  template <typename DoRecreateSwapchainType, typename DoRenderType>
+  explicit SurfaceRenderer(                                    //
+      ::VkSurfaceKHR surface,                                  //
+      const ::VkSurfaceCapabilitiesKHR& surface_capabilities,  //
+      std::span<::VkSurfaceFormatKHR> surface_formats,         //
+      DoRecreateSwapchainType&& recreate_swapchain,            //
+      DoRenderType&& render)
       : surface_{surface},
         surface_capabilities_{surface_capabilities},
-        surface_formats_{surface_formats} {}
+        surface_formats_{surface_formats},
+        render_{std::forward<DoRenderType>(render)},
+        recreate_swapchain_{
+            std::forward<DoRecreateSwapchainType>(recreate_swapchain)} {
+    CHECK_POSTCONDITION(render_);
+    CHECK_POSTCONDITION(recreate_swapchain_);
+  }
 
   bool HasSwapchain() const override { return has_swapchain_; }
 
@@ -38,16 +47,23 @@ class SurfaceRenderer final : public Renderer {
       return;
     }
 
-    // has_swapchain_ = swapchain_ != VK_NULL_HANDLE;
+    has_swapchain_ = recreate_swapchain_(geometry);
   }
 
-  void Render() override {}
+  void Render() override {
+    if (has_swapchain_) {
+      render_();
+    }
+  }
 
  private:
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   vk::PhysicalDeviceSurfaceCapabilities surface_capabilities_;
   vk::PhysicalDeviceSurfaceFormats surface_formats_;
   bool has_swapchain_ = false;
+
+  std::move_only_function<void()> render_;
+  std::move_only_function<bool(::VkExtent2D)> recreate_swapchain_;
 };
 
 }  // namespace volcano
