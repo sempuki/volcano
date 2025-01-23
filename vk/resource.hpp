@@ -720,6 +720,8 @@ using InstanceBase =                  //
 
 namespace impl {
 inline void end_device_adapter(::VkPhysicalDevice _, ::VkDevice device) {
+  ::VkResult result = ::vkDeviceWaitIdle(device);
+  CHECK_POSTCONDITION(result == VK_SUCCESS);
   ::vkDestroyDevice(device, ALLOCATOR);
 }
 }  // namespace impl

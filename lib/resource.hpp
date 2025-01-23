@@ -294,6 +294,12 @@ class CommandPool final {
 
   operator ::VkCommandPool() { return command_pool_; }
 
+  void reset() {
+    ::VkResult result =
+        ::vkResetCommandPool(command_pool_.parent(), command_pool_.handle(), 0);
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
  private:
   friend class Device;
 
@@ -702,6 +708,8 @@ class Swapchain final {
   Swapchain() = delete;
   ~Swapchain() = default;
 
+  operator ::VkSwapchainKHR() { return swapchain_; }
+
   std::vector<::VkImageView> create_image_views() {
     std::vector<::VkImageView> result;
     for (auto&& image_view : image_views_) {
@@ -783,6 +791,11 @@ class Device final {
   Device() = delete;
   ~Device() = default;
 
+  void wait_for_idle() {
+    ::VkResult result = ::vkDeviceWaitIdle(device_);
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
+
   Queue create_queue() {
     CHECK_PRECONDITION(queue_families_.size() == 1);
     return Queue{device_, queue_families_.front(), 0u};
@@ -841,10 +854,16 @@ class Device final {
     return RenderPass{device_, requested};
   }
 
-  std::unique_ptr<SurfaceRenderer> create_surface_renderer() {
-    return std::make_unique<SurfaceRenderer>(surface_,               //
-                                             surface_capabilities_,  //
-                                             surface_formats_);
+  template <typename DoRecreateSwapchainType, typename DoRenderType>
+  std::unique_ptr<SurfaceRenderer> create_surface_renderer(  //
+      DoRecreateSwapchainType&& recreate_swapchain,          //
+      DoRenderType&& render) {
+    return std::make_unique<SurfaceRenderer>(
+        surface_,                                                   //
+        surface_capabilities_,                                      //
+        surface_formats_,                                           //
+        std::forward<DoRecreateSwapchainType>(recreate_swapchain),  //
+        std::forward<DoRenderType>(render));
   }
 
   ShaderModule create_shader_module(
