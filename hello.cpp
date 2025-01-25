@@ -34,7 +34,6 @@ struct SwapchainRenderContext final {
                          ::VkBuffer vertex_buffer,             //
                          std::uint32_t vertex_count,           //
                          ::VkSwapchainKHR previous_swapchain,  //
-                         ::VkRenderPass render_pass,           //
                          ::VkShaderModule vert_shader,         //
                          ::VkShaderModule frag_shader,         //
                          InOut<Device> device,                 //
@@ -47,18 +46,19 @@ struct SwapchainRenderContext final {
             VK_PRESENT_MODE_FIFO_KHR,        //
             previous_swapchain)},
         swapchain_image_views{swapchain.create_image_views()},
-        framebuffers{device->create_framebuffers(  //
-            render_pass,                           //
+        render_pass{device->create_render_pass(VK_FORMAT_B8G8R8A8_UNORM)},  //
+        framebuffers{device->create_framebuffers(                           //
+            render_pass,                                                    //
             swapchain_image_views)},
-        command_buffer_block{device->allocate_command_buffer_block(  //
-            *command_pool,                                           //
-            swapchain_image_views.size())},
         pipeline_layout{device->create_pipeline_layout()},
         graphics_pipeline{device->create_graphics_pipeline(  //
             vert_shader,                                     //
             frag_shader,                                     //
             pipeline_layout,                                 //
             render_pass)},
+        command_buffer_block{device->allocate_command_buffer_block(  //
+            *command_pool,                                           //
+            swapchain_image_views.size())},
         vertex_buffers{vertex_buffer} {
     for (std::uint32_t i = 0; i < framebuffers.size(); ++i) {
       render_pass_commands.push_back(
@@ -77,15 +77,18 @@ struct SwapchainRenderContext final {
 
   Swapchain swapchain;
   std::vector<::VkImageView> swapchain_image_views;
+
+  RenderPass render_pass;
   std::vector<Framebuffer> framebuffers;
 
-  CommandBufferBlock command_buffer_block;
   PipelineLayout pipeline_layout;
   GraphicsPipeline graphics_pipeline;
 
+  CommandBufferBlock command_buffer_block;
+  std::vector<RenderPassCommandBuffer> render_pass_commands;
+
   std::array<::VkBuffer, 1> vertex_buffers;
   std::array<::VkDeviceSize, 1> vertex_buffer_offsets{0};
-  std::vector<RenderPassCommandBuffer> render_pass_commands;
 
   std::vector<Fence> submission_fences;
   std::vector<Semaphore> render_complete;
@@ -130,7 +133,7 @@ int main() {
   auto instance = application.create_instance({}, window->required_extensions(),
                                               DebugLevel::VERBOSE);
   auto surface = window->create_surface(instance);
-  auto device = instance.create_device(surface);
+  auto device = instance.create_presentation_device(surface);
   auto vert_shader = device.create_shader_module(vertex_shader_spirv_bin);
   auto frag_shader = device.create_shader_module(fragment_shader_spirv_bin);
 
@@ -144,14 +147,12 @@ int main() {
 
   auto queue = device.create_queue();
   auto command_pool = device.create_command_pool(queue.family_index());
-  auto render_pass = device.create_render_pass(VK_FORMAT_B8G8R8A8_UNORM);
 
   std::unique_ptr<SwapchainRenderContext> swapchain_render_context;
 
   window->set_renderer(device.create_surface_renderer(              //
       [vertex_buffer = static_cast<::VkBuffer>(vertex_buffer),      //
        vertex_buffer_vertex_count,                                  //
-       render_pass = static_cast<::VkRenderPass>(render_pass),      //
        vert_shader = static_cast<::VkShaderModule>(vert_shader),    //
        frag_shader = static_cast<::VkShaderModule>(frag_shader),    //
        device = InOut(device),                                      //
@@ -170,7 +171,6 @@ int main() {
             vertex_buffer,               //
             vertex_buffer_vertex_count,  //
             previous_swapchain,          //
-            render_pass,                 //
             vert_shader,                 //
             frag_shader,                 //
             device,                      //

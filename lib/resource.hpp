@@ -435,7 +435,8 @@ class RenderPass final {
     static const std::array<const ::VkAttachmentReference, 1>  //
         color_reference{
             ::VkAttachmentReference{
-                .attachment = 0,
+                .attachment =
+                    0,  // Index into `VkRenderPassCreateInfo::pAttachments`.
                 .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             },
         };
@@ -449,35 +450,33 @@ class RenderPass final {
                 .colorAttachmentCount =
                     narrow_cast<std::uint32_t>(color_reference.size()),
                 .pColorAttachments = color_reference.data(),
-                .pResolveAttachments = nullptr,
-                .pDepthStencilAttachment = nullptr,
-                .preserveAttachmentCount = 0,
-                .pPreserveAttachments = nullptr,
             },
         };
 
-    static const ::VkSubpassDependency src_subpass_dependency{
-        .srcSubpass = VK_SUBPASS_EXTERNAL,
-        .dstSubpass = 0,
-        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .srcAccessMask = 0,
-        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
-    };
-
-    static const ::VkSubpassDependency dst_subpass_dependency{
-        .srcSubpass = 0,
-        .dstSubpass = VK_SUBPASS_EXTERNAL,
-        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        .dstAccessMask = 0,
-        .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
-    };
-
     static const std::array<const ::VkSubpassDependency, 2>
-        subpass_dependencies{src_subpass_dependency, dst_subpass_dependency};
+        subpass_dependencies{
+            // Source.
+            ::VkSubpassDependency{
+                .srcSubpass = VK_SUBPASS_EXTERNAL,
+                .dstSubpass =
+                    0,  // Index into `VkRenderPassCreateInfo::pSubpasses`.
+                .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                .srcAccessMask = 0,
+                .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+            },
+            // Destination.
+            ::VkSubpassDependency{
+                .srcSubpass =
+                    0,  // Index into `VkRenderPassCreateInfo::pSubpasses`.
+                .dstSubpass = VK_SUBPASS_EXTERNAL,
+                .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                .dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                .dstAccessMask = 0,
+                .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
+            }};
 
     color_attachment.front().format = format;
 
@@ -545,20 +544,20 @@ class GraphicsPipeline final {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VK_SHADER_STAGE_VERTEX_BIT,
             .module = vertex_shader,
-            .pName = "main",  // Entry point.
+            .pName = "main",  // Entry point for vertex shader in module.
         },
         ::VkPipelineShaderStageCreateInfo{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
             .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
             .module = fragment_shader,
-            .pName = "main",  // Entry point.
+            .pName = "main",  // Entry point for fragment shader in module.
         },
     };
 
     std::array<::VkVertexInputBindingDescription, 1>  //
         vertex_input_binding_desc{
             ::VkVertexInputBindingDescription{
-                .binding = 0,                 // ??
+                .binding = 0,                 // Declare "binding 0".
                 .stride = 5 * sizeof(float),  // sizeof(Vertex2D_ColorF_pack)
                 .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
             },
@@ -567,15 +566,15 @@ class GraphicsPipeline final {
     std::array<::VkVertexInputAttributeDescription, 2>  //
         vertex_input_attribute_desc{
             ::VkVertexInputAttributeDescription{
-                .location = 0,  // ??
-                .binding = 0,   // ??
+                .location = 0,  // Declare "location 0".
+                .binding = 0,   // Wrt. "binding 0".
                 .format = VK_FORMAT_R32G32_SFLOAT,
                 // offsetof(Vertex2D_ColorF_pack, position)
                 .offset = 0 * sizeof(float),
             },
             ::VkVertexInputAttributeDescription{
-                .location = 1,  // ??
-                .binding = 0,   // ??
+                .location = 1,  // Declare "location 1".
+                .binding = 0,   // Wrt. "binding 0".
                 .format = VK_FORMAT_R32G32_SFLOAT,
                 // offsetof(Vertex2D_ColorF_pack, color)
                 .offset = 2 * sizeof(float),
@@ -610,12 +609,7 @@ class GraphicsPipeline final {
     };
 
     std::array<::VkRect2D, 1> scissors{
-        ::VkRect2D{.offset =
-                       {
-                           .x = 0,
-                           .y = 0,
-                       },
-                   .extent = surface_extent},
+        ::VkRect2D{.offset = {.x = 0, .y = 0}, .extent = surface_extent},
     };
 
     ::VkPipelineViewportStateCreateInfo viewport_state_info{
@@ -1042,7 +1036,7 @@ class Instance final {
 
   operator ::VkInstance() const { return instance_; }
 
-  Device create_device(::VkSurfaceKHR surface) {
+  Device create_presentation_device(::VkSurfaceKHR surface) {
     CHECK_PRECONDITION(surface != VK_NULL_HANDLE);
 
     std::vector<FindQueueFamilyResult> selected_result = select_queue_family_if(
