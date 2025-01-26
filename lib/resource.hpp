@@ -224,12 +224,9 @@ class RenderPassCommandBuffer final {
                                    ::VkFramebuffer framebuffer,
                                    ::VkExtent2D framebuffer_extent) {
     static std::array<::VkClearValue, 1>  //
-        clear_values{::VkClearValue{
-            .color =
-                {
-                    .float32 = {0.1f, 0.1f, 0.1f, 1.0f},
-                },
-        }};
+        clear_values{::VkClearValue{.color = {
+                                        .float32 = {0.1f, 0.1f, 0.1f, 1.0f},
+                                    }}};
 
     command_ = vk::RenderPassCommandBuffer{
         vk::CommandBuffer{
@@ -240,15 +237,8 @@ class RenderPassCommandBuffer final {
         ::VkRenderPassBeginInfo{
             .renderPass = render_pass,
             .framebuffer = framebuffer,
-            .renderArea =
-                {
-                    .offset =
-                        {
-                            .x = 0,
-                            .y = 0,
-                        },
-                    .extent = framebuffer_extent,
-                },
+            .renderArea = {.offset = {.x = 0, .y = 0},
+                           .extent = framebuffer_extent},
             .clearValueCount = narrow_cast<std::uint32_t>(clear_values.size()),
             .pClearValues = clear_values.data(),
         }};
@@ -351,16 +341,13 @@ class ImageView final {
                                    VK_COMPONENT_SWIZZLE_IDENTITY,  //
                                    VK_COMPONENT_SWIZZLE_IDENTITY,  //
                                    VK_COMPONENT_SWIZZLE_IDENTITY},
-                    .subresourceRange =
-                        {
-                            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                            .baseMipLevel = 0,
-                            .levelCount = VK_REMAINING_MIP_LEVELS,
-                            .baseArrayLayer = 0,
-                            .layerCount = VK_REMAINING_ARRAY_LAYERS,
-                        },
-
-                }};
+                    .subresourceRange = {
+                        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .baseMipLevel = 0,
+                        .levelCount = VK_REMAINING_MIP_LEVELS,
+                        .baseArrayLayer = 0,
+                        .layerCount = VK_REMAINING_ARRAY_LAYERS,
+                    }}};
   }
 
   vk::ImageView image_view_;
@@ -698,8 +685,8 @@ class ShaderModule final {
                         const std::vector<std::uint32_t>& shader_spirv_bin) {
     shader_module_ = vk::ShaderModule{
         device, ::VkShaderModuleCreateInfo{
-                    .codeSize = shader_spirv_bin.size() *
-                                sizeof(std::uint32_t),  // Byte count.
+                    // Byte count.
+                    .codeSize = shader_spirv_bin.size() * sizeof(std::uint32_t),
                     .pCode = shader_spirv_bin.data(),
                 }};
   }
@@ -1196,12 +1183,6 @@ class Instance final {
     }
 
     return result;
-  }
-
-  std::uint32_t select_memory_from_requirements() {
-    std::uint32_t device_memory_property_index = 0;
-
-    return device_memory_property_index;
   }
 
   vk::Instance instance_;
