@@ -70,7 +70,7 @@ class Semaphore final {
   Semaphore() = delete;
   ~Semaphore() = default;
 
-  operator ::VkSemaphore() { return semaphore_; }
+  operator ::VkSemaphore() const { return semaphore_; }
 
  private:
   friend class Device;
@@ -91,7 +91,7 @@ class Fence final {
   Fence() = delete;
   ~Fence() = default;
 
-  operator ::VkFence() { return fence_; }
+  operator ::VkFence() const { return fence_; }
 
   void wait(std::chrono::nanoseconds timeout) {
     ::VkResult result =
@@ -125,7 +125,7 @@ class Buffer final {
   Buffer() = delete;
   ~Buffer() = default;
 
-  operator ::VkBuffer() { return buffer_; }
+  operator ::VkBuffer() const { return buffer_; }
 
  private:
   friend class Device;
@@ -296,7 +296,7 @@ class CommandPool final {
   CommandPool() = delete;
   ~CommandPool() = default;
 
-  operator ::VkCommandPool() { return command_pool_; }
+  operator ::VkCommandPool() const { return command_pool_; }
 
   void reset() {
     ::VkResult result =
@@ -326,7 +326,7 @@ class ImageView final {
   ImageView() = delete;
   ~ImageView() = default;
 
-  operator ::VkImageView() { return image_view_; }
+  operator ::VkImageView() const { return image_view_; }
 
  private:
   friend class Swapchain;
@@ -362,7 +362,7 @@ class Framebuffer final {
   Framebuffer() = delete;
   ~Framebuffer() = default;
 
-  operator ::VkFramebuffer() { return framebuffer_; }
+  operator ::VkFramebuffer() const { return framebuffer_; }
   ::VkExtent2D extent() const { return extent_; }
 
  private:
@@ -400,7 +400,7 @@ class RenderPass final {
   RenderPass() = delete;
   ~RenderPass() = default;
 
-  operator ::VkRenderPass() { return render_pass_; }
+  operator ::VkRenderPass() const { return render_pass_; }
 
  private:
   friend class Device;
@@ -493,7 +493,7 @@ class PipelineLayout final {
   PipelineLayout() = delete;
   ~PipelineLayout() = default;
 
-  operator ::VkPipelineLayout() { return pipeline_layout_; }
+  operator ::VkPipelineLayout() const { return pipeline_layout_; }
 
  private:
   friend class Device;
@@ -515,7 +515,7 @@ class GraphicsPipeline final {
   GraphicsPipeline() = delete;
   ~GraphicsPipeline() = default;
 
-  operator ::VkPipeline() { return pipeline_; }
+  operator ::VkPipeline() const { return pipeline_; }
 
  private:
   friend class Device;
@@ -676,7 +676,7 @@ class ShaderModule final {
   ShaderModule() = delete;
   ~ShaderModule() = default;
 
-  operator ::VkShaderModule() { return shader_module_; }
+  operator ::VkShaderModule() const { return shader_module_; }
 
  private:
   friend class Device;
@@ -703,7 +703,7 @@ class Swapchain final {
   Swapchain() = delete;
   ~Swapchain() = default;
 
-  operator ::VkSwapchainKHR() { return swapchain_; }
+  operator ::VkSwapchainKHR() const { return swapchain_; }
 
   std::vector<::VkImageView> create_image_views() {
     std::vector<::VkImageView> result;
@@ -853,7 +853,7 @@ class Device final {
   std::unique_ptr<SurfaceRenderer> create_surface_renderer(  //
       DoRecreateSwapchainType&& recreate_swapchain,          //
       DoRenderType&& render) {
-    return std::make_unique<SurfaceRenderer>(
+    return std::make_unique<SurfaceRenderer>(                       //
         surface_,                                                   //
         surface_capabilities_,                                      //
         surface_formats_,                                           //
@@ -866,7 +866,7 @@ class Device final {
     return ShaderModule{device_, shader_spirv_bin};
   }
 
-  Swapchain create_swapchain(
+  Swapchain create_swapchain(                   //
       ::VkFormat requested_format,              //
       ::VkPresentModeKHR surface_present_mode,  //
       ::VkSwapchainKHR previous_swapchain = VK_NULL_HANDLE) {
