@@ -30,25 +30,40 @@ struct SwapchainRenderContext final {
   SwapchainRenderContext() = delete;
   ~SwapchainRenderContext() { device->wait_for_idle(); }
 
+  SwapchainRenderContext(::VkExtent2D geometry,
+                         const SwapchainRenderContext& previous)
+      : SwapchainRenderContext(geometry,                    //
+                               previous.vertex_buffers[0],  //
+                               previous.vertex_count,       //
+                               previous.vert_shader,        //
+                               previous.frag_shader,        //
+                               previous.swapchain,          //
+                               previous.device,             //
+                               previous.command_pool) {}
+
   SwapchainRenderContext(::VkExtent2D geometry,                //
                          ::VkBuffer vertex_buffer,             //
                          std::uint32_t vertex_count,           //
-                         ::VkSwapchainKHR previous_swapchain,  //
                          ::VkShaderModule vert_shader,         //
                          ::VkShaderModule frag_shader,         //
+                         ::VkSwapchainKHR previous_swapchain,  //
                          InOut<Device> device,                 //
                          InOut<CommandPool> command_pool)
       : device{device},
         command_pool{command_pool},
         geometry{geometry},
+        vertex_buffers{vertex_buffer},
+        vertex_count{vertex_count},
+        vert_shader{vert_shader},
+        frag_shader{frag_shader},
         swapchain{device->create_swapchain(  //
             VK_FORMAT_B8G8R8A8_UNORM,        //
             VK_PRESENT_MODE_FIFO_KHR,        //
-            previous_swapchain)},
+            previous_swapchain)},            //
         swapchain_image_views{swapchain.create_image_views()},
-        render_pass{device->create_render_pass(VK_FORMAT_B8G8R8A8_UNORM)},  //
-        framebuffers{device->create_framebuffers(                           //
-            render_pass,                                                    //
+        render_pass{device->create_render_pass(VK_FORMAT_B8G8R8A8_UNORM)},
+        framebuffers{device->create_framebuffers(  //
+            render_pass,                           //
             swapchain_image_views)},
         pipeline_layout{device->create_pipeline_layout()},
         graphics_pipeline{device->create_graphics_pipeline(  //
@@ -58,8 +73,7 @@ struct SwapchainRenderContext final {
             render_pass)},
         command_buffer_block{device->allocate_command_buffer_block(  //
             *command_pool,                                           //
-            swapchain_image_views.size())},
-        vertex_buffers{vertex_buffer} {
+            swapchain_image_views.size())} {
     for (std::uint32_t i = 0; i < framebuffers.size(); ++i) {
       render_pass_commands.push_back(
           command_buffer_block.create_render_pass_command_buffer(
@@ -75,8 +89,16 @@ struct SwapchainRenderContext final {
   InOut<CommandPool> command_pool;
   ::VkExtent2D geometry;
 
+  std::array<::VkBuffer, 1> vertex_buffers;
+  std::array<::VkDeviceSize, 1> vertex_buffer_offsets{0};
+  std::uint32_t vertex_count{0};
+
+  ::VkShaderModule vert_shader;
+  ::VkShaderModule frag_shader;
+
   Swapchain swapchain;
   std::vector<::VkImageView> swapchain_image_views;
+  std::uint32_t next_swapchain_image_index{0};
 
   RenderPass render_pass;
   std::vector<Framebuffer> framebuffers;
@@ -86,9 +108,6 @@ struct SwapchainRenderContext final {
 
   CommandBufferBlock command_buffer_block;
   std::vector<RenderPassCommandBuffer> render_pass_commands;
-
-  std::array<::VkBuffer, 1> vertex_buffers;
-  std::array<::VkDeviceSize, 1> vertex_buffer_offsets{0};
 
   std::vector<Fence> submission_fences;
   std::vector<Semaphore> render_complete;
@@ -125,11 +144,11 @@ int main() {
       vertex_buffer_byte_count                                         //
   };
 
-  Application application{"hello", 0};
+  Window::Geometry initial_window_geometry{.width = 800, .height = 600};
   std::unique_ptr<Window> window = std::make_unique<glfw::PlatformWindow>(
-      "hello-window", Window::Geometry{.width = 800, .height = 600}  //
-  );
+      "hello-window", initial_window_geometry);
 
+  Application application{"hello", 0};
   auto instance = application.create_instance({}, window->required_extensions(),
                                               DebugLevel::VERBOSE);
   auto surface = window->create_surface(instance);
@@ -148,37 +167,27 @@ int main() {
   auto queue = device.create_queue();
   auto command_pool = device.create_command_pool(queue.family_index());
 
-  std::unique_ptr<SwapchainRenderContext> swapchain_render_context;
+  auto swapchain_render_context = std::make_unique<SwapchainRenderContext>(
+      ::VkExtent2D{
+          .width = initial_window_geometry.width,
+          .height = initial_window_geometry.height,
+      },
+      vertex_buffer,               //
+      vertex_buffer_vertex_count,  //
+      vert_shader,                 //
+      frag_shader,                 //
+      VK_NULL_HANDLE,              //
+      InOut(device),               //
+      InOut(command_pool));
 
-  window->set_renderer(device.create_surface_renderer(              //
-      [vertex_buffer = static_cast<::VkBuffer>(vertex_buffer),      //
-       vertex_buffer_vertex_count,                                  //
-       vert_shader = static_cast<::VkShaderModule>(vert_shader),    //
-       frag_shader = static_cast<::VkShaderModule>(frag_shader),    //
-       device = InOut(device),                                      //
-       command_pool = InOut(command_pool),                          //
-       swapchain_render_context = InOut(swapchain_render_context)]  //
+  window->set_renderer(device.create_surface_renderer(
+      [&swapchain_render_context]  //
       (::VkExtent2D geometry) -> bool {
-        command_pool->reset();
-
-        ::VkSwapchainKHR previous_swapchain = VK_NULL_HANDLE;
-        if (*swapchain_render_context) {
-          previous_swapchain = (*swapchain_render_context)->swapchain;
-        }
-
-        *swapchain_render_context = std::make_unique<SwapchainRenderContext>(
-            geometry,                    //
-            vertex_buffer,               //
-            vertex_buffer_vertex_count,  //
-            previous_swapchain,          //
-            vert_shader,                 //
-            frag_shader,                 //
-            device,                      //
-            command_pool);
-
+        swapchain_render_context = std::make_unique<SwapchainRenderContext>(
+            geometry, *swapchain_render_context);
         return true;
       },
-      [swapchain_render_context = InOut(swapchain_render_context)]() {
+      [&swapchain_render_context]() {
         // 1. Wait on a submission fence.
         // 2. `vkAcquireNextImageKHR` the corresp. semaphore.
         // 3. `vkQueueSubmit` command buffers to graphics queue.
