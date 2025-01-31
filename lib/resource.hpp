@@ -220,41 +220,41 @@ class DeviceMemory final {
 };
 
 //------------------------------------------------------------------------------
-class RenderPassCommandBuffer final {
+class RenderPassCommandBuilder final {
  public:
-  DECLARE_COPY_DELETE(RenderPassCommandBuffer);
-  DECLARE_MOVE_DEFAULT(RenderPassCommandBuffer);
+  DECLARE_COPY_DELETE(RenderPassCommandBuilder);
+  DECLARE_MOVE_DEFAULT(RenderPassCommandBuilder);
 
-  RenderPassCommandBuffer() = delete;
-  ~RenderPassCommandBuffer() = default;
+  RenderPassCommandBuilder() = delete;
+  ~RenderPassCommandBuilder() = default;
 
-  operator ::VkCommandBuffer() const { return command_.handle(); }
+  operator ::VkCommandBuffer() const { return builder_.handle(); }
 
-  void bind(::VkPipeline pipeline) { command_.bind_pipeline(pipeline); }
+  void bind(::VkPipeline pipeline) { builder_.bind_pipeline(pipeline); }
 
   void bind(std::uint32_t vertex_buffer_binding,
             std::span<::VkBuffer> vertex_buffers,
             std::span<::VkDeviceSize> vertex_buffer_offsets) {
-    command_.bind_vertex_buffers(vertex_buffer_binding, vertex_buffers,
+    builder_.bind_vertex_buffers(vertex_buffer_binding, vertex_buffers,
                                  vertex_buffer_offsets);
   }
 
-  void draw(std::uint32_t vertex_count) { command_.draw(vertex_count); }
+  void draw(std::uint32_t vertex_count) { builder_.draw(vertex_count); }
 
  private:
   friend class CommandBufferBlock;
 
-  explicit RenderPassCommandBuffer(::VkCommandBuffer command_buffer,
-                                   ::VkRenderPass render_pass,
-                                   ::VkFramebuffer framebuffer,
-                                   ::VkExtent2D framebuffer_extent) {
+  explicit RenderPassCommandBuilder(::VkCommandBuffer command_buffer,
+                                    ::VkRenderPass render_pass,
+                                    ::VkFramebuffer framebuffer,
+                                    ::VkExtent2D framebuffer_extent) {
     static std::array<::VkClearValue, 1>  //
         clear_values{::VkClearValue{.color = {
                                         .float32 = {0.1f, 0.1f, 0.1f, 1.0f},
                                     }}};
 
-    command_ = vk::RenderPassCommandBuffer{
-        vk::CommandBuffer{
+    builder_ = vk::RenderPassCommandBuilder{
+        vk::CommandBufferBuilder{
             command_buffer,
             ::VkCommandBufferBeginInfo{
                 .flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT,
@@ -269,7 +269,7 @@ class RenderPassCommandBuffer final {
         }};
   }
 
-  vk::RenderPassCommandBuffer command_;
+  vk::RenderPassCommandBuilder builder_;
 };
 
 //------------------------------------------------------------------------------
@@ -285,15 +285,15 @@ class CommandBufferBlock final {
     command_buffers_.acquire_command_buffers(count);
   }
 
-  RenderPassCommandBuffer create_render_pass_command_buffer(
+  RenderPassCommandBuilder create_render_pass_command_builder(
       std::uint32_t command_buffer_index,  //
       ::VkRenderPass render_pass,          //
       ::VkFramebuffer framebuffer,         //
       ::VkExtent2D framebuffer_extent) {
-    return RenderPassCommandBuffer{command_buffers_[command_buffer_index],  //
-                                   render_pass,                             //
-                                   framebuffer,                             //
-                                   framebuffer_extent};
+    return RenderPassCommandBuilder{command_buffers_[command_buffer_index],  //
+                                    render_pass,                             //
+                                    framebuffer,                             //
+                                    framebuffer_extent};
   }
 
  private:
