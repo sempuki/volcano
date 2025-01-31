@@ -89,6 +89,11 @@ class DeviceQueueCreateInfo final         //
           ::VkDeviceQueueCreateInfo,      //
           VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO> {};
 
+class SubmitInfo final                    //
+    : public impl::TypeValueAdapterBase<  //
+          ::VkSubmitInfo,                 //
+          VK_STRUCTURE_TYPE_SUBMIT_INFO> {};
+
 class SemaphoreCreateInfo final           //
     : public impl::TypeValueAdapterBase<  //
           ::VkSemaphoreCreateInfo,        //
@@ -143,6 +148,11 @@ class SwapchainCreateInfo final           //
     : public impl::TypeValueAdapterBase<  //
           ::VkSwapchainCreateInfoKHR,     //
           VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR> {};
+
+class PresentInfo final                   //
+    : public impl::TypeValueAdapterBase<  //
+          ::VkPresentInfoKHR,             //
+          VK_STRUCTURE_TYPE_PRESENT_INFO_KHR> {};
 
 class FramebufferCreateInfo final         //
     : public impl::TypeValueAdapterBase<  //
