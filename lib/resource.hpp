@@ -15,12 +15,10 @@
 
 namespace volcano {
 namespace impl {
-
 constexpr const char* VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
 constexpr const char* SWAPCHAIN_EXTENSION_NAME =
     VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 constexpr const char* DEBUG_EXTENSION_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-
 }  // namespace impl
 
 enum class DebugLevel {
@@ -44,7 +42,30 @@ class Queue final {
   Queue() = delete;
   ~Queue() = default;
 
+  operator ::VkQueue() const { return queue_.handle(); }
+
   std::uint32_t family_index() const { return index_.family_index; }
+
+  void submit(::VkCommandBuffer command_buffer,             //
+              ::VkPipelineStageFlags wait_pipeline_stages,  //
+              ::VkSemaphore wait_semaphore,                 //
+              ::VkSemaphore signal_semaphore,               //
+              ::VkFence maybe_signal_fence = VK_NULL_HANDLE) {
+    vk::SubmitInfo submit_info{::VkSubmitInfo{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = std::addressof(wait_semaphore),
+        .pWaitDstStageMask = std::addressof(wait_pipeline_stages),
+        .commandBufferCount = 1,
+        .pCommandBuffers = std::addressof(command_buffer),
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = std::addressof(signal_semaphore),
+
+    }};
+
+    ::VkResult result =
+        ::vkQueueSubmit(queue_, 1, submit_info.address(), maybe_signal_fence);
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+  }
 
  private:
   vk::Queue queue_;
@@ -70,7 +91,7 @@ class Semaphore final {
   Semaphore() = delete;
   ~Semaphore() = default;
 
-  operator ::VkSemaphore() const { return semaphore_; }
+  operator ::VkSemaphore() const { return semaphore_.handle(); }
 
  private:
   friend class Device;
@@ -91,13 +112,15 @@ class Fence final {
   Fence() = delete;
   ~Fence() = default;
 
-  operator ::VkFence() const { return fence_; }
+  operator ::VkFence() const { return fence_.handle(); }
 
-  void wait(std::chrono::nanoseconds timeout) {
+  void wait(
+      std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) {
     ::VkResult result =
         ::vkWaitForFences(fence_.parent(), 1, std::addressof(fence_.handle()),
                           VK_TRUE, timeout.count());
     CHECK_POSTCONDITION(result == VK_SUCCESS);
+    reset();
   }
 
   void reset() {
@@ -125,7 +148,7 @@ class Buffer final {
   Buffer() = delete;
   ~Buffer() = default;
 
-  operator ::VkBuffer() const { return buffer_; }
+  operator ::VkBuffer() const { return buffer_.handle(); }
 
  private:
   friend class Device;
@@ -204,6 +227,8 @@ class RenderPassCommandBuffer final {
 
   RenderPassCommandBuffer() = delete;
   ~RenderPassCommandBuffer() = default;
+
+  operator ::VkCommandBuffer() const { return command_.handle(); }
 
   void bind(::VkPipeline pipeline) { command_.bind_pipeline(pipeline); }
 
@@ -296,7 +321,7 @@ class CommandPool final {
   CommandPool() = delete;
   ~CommandPool() = default;
 
-  operator ::VkCommandPool() const { return command_pool_; }
+  operator ::VkCommandPool() const { return command_pool_.handle(); }
 
   void reset() {
     ::VkResult result =
@@ -326,7 +351,7 @@ class ImageView final {
   ImageView() = delete;
   ~ImageView() = default;
 
-  operator ::VkImageView() const { return image_view_; }
+  operator ::VkImageView() const { return image_view_.handle(); }
 
  private:
   friend class Swapchain;
@@ -362,7 +387,7 @@ class Framebuffer final {
   Framebuffer() = delete;
   ~Framebuffer() = default;
 
-  operator ::VkFramebuffer() const { return framebuffer_; }
+  operator ::VkFramebuffer() const { return framebuffer_.handle(); }
   ::VkExtent2D extent() const { return extent_; }
 
  private:
@@ -400,7 +425,7 @@ class RenderPass final {
   RenderPass() = delete;
   ~RenderPass() = default;
 
-  operator ::VkRenderPass() const { return render_pass_; }
+  operator ::VkRenderPass() const { return render_pass_.handle(); }
 
  private:
   friend class Device;
@@ -493,7 +518,7 @@ class PipelineLayout final {
   PipelineLayout() = delete;
   ~PipelineLayout() = default;
 
-  operator ::VkPipelineLayout() const { return pipeline_layout_; }
+  operator ::VkPipelineLayout() const { return pipeline_layout_.handle(); }
 
  private:
   friend class Device;
@@ -515,7 +540,7 @@ class GraphicsPipeline final {
   GraphicsPipeline() = delete;
   ~GraphicsPipeline() = default;
 
-  operator ::VkPipeline() const { return pipeline_; }
+  operator ::VkPipeline() const { return pipeline_.handle(); }
 
  private:
   friend class Device;
@@ -676,7 +701,7 @@ class ShaderModule final {
   ShaderModule() = delete;
   ~ShaderModule() = default;
 
-  operator ::VkShaderModule() const { return shader_module_; }
+  operator ::VkShaderModule() const { return shader_module_.handle(); }
 
  private:
   friend class Device;
@@ -703,7 +728,7 @@ class Swapchain final {
   Swapchain() = delete;
   ~Swapchain() = default;
 
-  operator ::VkSwapchainKHR() const { return swapchain_; }
+  operator ::VkSwapchainKHR() const { return swapchain_.handle(); }
 
   std::vector<::VkImageView> create_image_views() {
     std::vector<::VkImageView> result;
@@ -711,6 +736,39 @@ class Swapchain final {
       result.push_back(image_view);
     }
     return result;
+  }
+
+  std::uint32_t acquire_next_image(
+      ::VkSemaphore maybe_signal_semaphore = VK_NULL_HANDLE,
+      ::VkFence maybe_signal_fence = VK_NULL_HANDLE,
+      std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) {
+    std::uint32_t next_image_index = 0;
+
+    ::VkResult result = ::vkAcquireNextImageKHR(  //
+        swapchain_.parent(),                      //
+        swapchain_.handle(),                      //
+        timeout.count(),                          //
+        maybe_signal_semaphore,                   //
+        maybe_signal_fence,                       //
+        std::addressof(next_image_index));
+
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    return next_image_index;
+  }
+
+  void present(std::uint32_t image_index,  //
+               ::VkQueue queue,            //
+               ::VkSemaphore wait_semaphore) {
+    vk::PresentInfo present_info{::VkPresentInfoKHR{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = std::addressof(wait_semaphore),
+        .swapchainCount = 1,
+        .pSwapchains = std::addressof(swapchain_.handle()),
+        .pImageIndices = std::addressof(image_index),
+    }};
+
+    ::VkResult result = ::vkQueuePresentKHR(queue, present_info.address());
+    CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
  private:
@@ -995,6 +1053,12 @@ class Device final {
     std::print(" .. Image Extent Current: {},{}\n",  //
                surface_capabilities_().currentExtent.width,
                surface_capabilities_().currentExtent.height);
+    std::print(" .. Image Extent Min: {},{}\n",  //
+               surface_capabilities_().minImageExtent.width,
+               surface_capabilities_().minImageExtent.height);
+    std::print(" .. Image Extent Max: {},{}\n",  //
+               surface_capabilities_().maxImageExtent.width,
+               surface_capabilities_().maxImageExtent.height);
   }
 
   vk::Device device_;
@@ -1021,7 +1085,7 @@ class Instance final {
   Instance() = delete;
   ~Instance() = default;
 
-  operator ::VkInstance() const { return instance_; }
+  operator ::VkInstance() const { return instance_.handle(); }
 
   Device create_presentation_device(::VkSurfaceKHR surface) {
     CHECK_PRECONDITION(surface != VK_NULL_HANDLE);

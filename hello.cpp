@@ -23,6 +23,9 @@ struct Vertex2D_ColorF_pack {
   ColorF color;
 };
 
+// Never lag by more than presentation count.
+constexpr std::uint32_t max_frame_count = 2;
+
 struct SwapchainRenderContext final {
   DECLARE_COPY_DELETE(SwapchainRenderContext);
   DECLARE_MOVE_DELETE(SwapchainRenderContext);
@@ -83,6 +86,11 @@ struct SwapchainRenderContext final {
                                        vertex_buffer_offsets);
       render_pass_commands.back().draw(vertex_count);
     }
+
+    image_acquired = device->create_semaphores(max_frame_count);
+    image_rendered = device->create_semaphores(max_frame_count);
+    frame_present =
+        device->create_fences(max_frame_count, VK_FENCE_CREATE_SIGNALED_BIT);
   }
 
   InOut<Device> device;
@@ -98,7 +106,7 @@ struct SwapchainRenderContext final {
 
   Swapchain swapchain;
   std::vector<::VkImageView> swapchain_image_views;
-  std::uint32_t next_swapchain_image_index{0};
+  std::uint32_t frame_present_index{0};
 
   RenderPass render_pass;
   std::vector<Framebuffer> framebuffers;
@@ -109,8 +117,9 @@ struct SwapchainRenderContext final {
   CommandBufferBlock command_buffer_block;
   std::vector<RenderPassCommandBuffer> render_pass_commands;
 
-  std::vector<Fence> submission_fences;
-  std::vector<Semaphore> render_complete;
+  std::vector<Fence> frame_present;
+  std::vector<Semaphore> image_rendered;
+  std::vector<Semaphore> image_acquired;
 };
 
 int main() {
@@ -169,8 +178,8 @@ int main() {
 
   auto swapchain_render_context = std::make_unique<SwapchainRenderContext>(
       ::VkExtent2D{
-          .width = initial_window_geometry.width,
-          .height = initial_window_geometry.height,
+          .width = narrow_cast<std::uint32_t>(initial_window_geometry.width),
+          .height = narrow_cast<std::uint32_t>(initial_window_geometry.height),
       },
       vertex_buffer,               //
       vertex_buffer_vertex_count,  //
@@ -187,11 +196,29 @@ int main() {
             geometry, *swapchain_render_context);
         return true;
       },
-      [&swapchain_render_context]() {
-        // 1. Wait on a submission fence.
-        // 2. `vkAcquireNextImageKHR` the corresp. semaphore.
-        // 3. `vkQueueSubmit` command buffers to graphics queue.
-        // 4. `vkQueuePresentKHR` swapchain image to present queue.
+      [&swapchain_render_context, &queue]() {
+        auto* context = swapchain_render_context.get();
+        CHECK_INVARIANT(context->frame_present.size() == max_frame_count);
+        CHECK_INVARIANT(context->image_acquired.size() == max_frame_count);
+        CHECK_INVARIANT(context->image_rendered.size() == max_frame_count);
+
+        auto frame_index = context->frame_present_index;
+        context->frame_present_index =
+            (context->frame_present_index + 1) % context->frame_present.size();
+
+        context->frame_present[frame_index].wait();
+        auto image_index = context->swapchain.acquire_next_image(
+            context->image_acquired[frame_index]);
+
+        queue.submit(                                       //
+            context->render_pass_commands[image_index],     //
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  //
+            context->image_acquired[frame_index],           //
+            context->image_rendered[frame_index],           //
+            context->frame_present[frame_index]);
+
+        context->swapchain.present(image_index, queue,
+                                   context->image_rendered[frame_index]);
       }));
 
   window->show();
