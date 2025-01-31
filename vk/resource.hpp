@@ -828,14 +828,6 @@ inline void end_command_buffer_adapter(::VkCommandBuffer handle) {
 }
 }  // namespace impl
 
-using CommandBufferBase =                    //
-    impl::HandleBase<                        //
-        ::VkCommandBuffer,                   //
-        ::VkCommandBufferBeginInfo,          //
-        CommandBufferBeginInfo,              //
-        impl::begin_command_buffer_adapter,  //
-        impl::end_command_buffer_adapter>;
-
 using CommandPoolBase =                       //
     impl::DefaultParentedHandleResourceBase<  //
         ::VkDevice,                           //
@@ -844,6 +836,14 @@ using CommandPoolBase =                       //
         CommandPoolCreateInfo,                //
         ::vkCreateCommandPool,                //
         ::vkDestroyCommandPool>;
+
+using CommandBufferBuilderBase =             //
+    impl::HandleBase<                        //
+        ::VkCommandBuffer,                   //
+        ::VkCommandBufferBeginInfo,          //
+        CommandBufferBeginInfo,              //
+        impl::begin_command_buffer_adapter,  //
+        impl::end_command_buffer_adapter>;
 
 using ImageViewBase =                         //
     impl::DefaultParentedHandleResourceBase<  //
@@ -950,8 +950,8 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(Fence, FenceBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Buffer, BufferBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(Queue, QueueBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(DeviceMemory, DeviceMemoryBase);
-DERIVE_FINAL_WITH_CONSTRUCTORS(CommandBuffer, CommandBufferBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(CommandPool, CommandPoolBase);
+DERIVE_FINAL_WITH_CONSTRUCTORS(CommandBufferBuilder, CommandBufferBuilderBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(ImageView, ImageViewBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(RenderPass, RenderPassBase);
 DERIVE_FINAL_WITH_CONSTRUCTORS(PipelineLayout, PipelineLayoutBase);
@@ -975,16 +975,16 @@ inline void end_render_pass_command_adapter(::VkCommandBuffer handle) {
 }
 }  // namespace impl
 
-using RenderPassCommandBufferBase =               //
+using RenderPassCommandBuilderBase =              //
     impl::HandleBase<                             //
-        CommandBuffer,                            //
+        CommandBufferBuilder,                     //
         ::VkRenderPassBeginInfo,                  //
         RenderPassBeginInfo,                      //
         impl::begin_render_pass_command_adapter,  //
         impl::end_render_pass_command_adapter>;
 
-class RenderPassCommandBuffer final : public RenderPassCommandBufferBase {
-  using BaseType = RenderPassCommandBufferBase;
+class RenderPassCommandBuilder final : public RenderPassCommandBuilderBase {
+  using BaseType = RenderPassCommandBuilderBase;
 
  public:
   using BaseType::BaseType;

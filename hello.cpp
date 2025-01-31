@@ -78,13 +78,15 @@ struct SwapchainRenderContext final {
             *command_pool,                                           //
             swapchain_image_views.size())} {
     for (std::uint32_t i = 0; i < framebuffers.size(); ++i) {
-      render_pass_commands.push_back(
-          command_buffer_block.create_render_pass_command_buffer(
-              i, render_pass, framebuffers[i], framebuffers[i].extent()));
-      render_pass_commands.back().bind(graphics_pipeline);
-      render_pass_commands.back().bind(0, vertex_buffers,
+      auto render_pass_command_builder =
+          command_buffer_block.create_render_pass_command_builder(
+              i, render_pass, framebuffers[i], framebuffers[i].extent());
+
+      render_pass_command_builder.bind(graphics_pipeline);
+      render_pass_command_builder.bind(0, vertex_buffers,
                                        vertex_buffer_offsets);
-      render_pass_commands.back().draw(vertex_count);
+      render_pass_command_builder.draw(vertex_count);
+      render_pass_command.push_back(render_pass_command_builder);
     }
 
     image_acquired = device->create_semaphores(max_frame_count);
@@ -115,7 +117,7 @@ struct SwapchainRenderContext final {
   GraphicsPipeline graphics_pipeline;
 
   CommandBufferBlock command_buffer_block;
-  std::vector<RenderPassCommandBuffer> render_pass_commands;
+  std::vector<::VkCommandBuffer> render_pass_command;
 
   std::vector<Fence> frame_present;
   std::vector<Semaphore> image_rendered;
@@ -211,7 +213,7 @@ int main() {
             context->image_acquired[frame_index]);
 
         queue.submit(                                       //
-            context->render_pass_commands[image_index],     //
+            context->render_pass_command[image_index],      //
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  //
             context->image_acquired[frame_index],           //
             context->image_rendered[frame_index],           //
