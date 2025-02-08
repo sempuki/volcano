@@ -15,6 +15,10 @@
 #include <type_traits>
 #include <utility>
 
+#ifdef __GNUC__  // Clang also supports this header.
+#include <cxxabi.h>
+#endif  
+
 #define DECLARE_COPY_DEFAULT(class_name__)              \
   class_name__(const class_name__&) noexcept = default; \
   class_name__& operator=(const class_name__&) noexcept = default;
@@ -216,5 +220,38 @@ void invoke_with_continuation(ContinuationType&& continuation,
 }
 
 struct Empty final {};
+
+#ifdef __GNUC__  // Clang also supports this header.
+inline std::string demangle(const std::string& name) {
+  char buffer[1024];  // Avoid realloc() within demangle.
+  size_t inout_size = std::size(buffer);
+  int out_status = 0;
+  abi::__cxa_demangle(name.c_str(), buffer, &inout_size, &out_status);
+  return out_status ? name : buffer;
+}
+#elif
+inline std::string demangle(const std::string& name) { return name; }
+#endif
+
+template <typename Type>
+std::string to_type_string() {
+  return demangle(typeid(Type).name());
+}
+
+template <typename Type>
+std::string to_type_string(Type&& object) {
+  return demangle(typeid(decltype(object)).name());
+}
+
+template <typename ObjectType>
+void dump_object_bytes(const ObjectType& object) {
+  std::print("** {}: ", to_type_string<ObjectType>());
+  auto* begin_address = reinterpret_cast<const char*>(std::addressof(object));
+  auto* end_address = reinterpret_cast<const char*>(std::addressof(object) + 1);
+  for (; begin_address != end_address; ++begin_address) {
+    std::print("{:02x} ", *begin_address);
+  }
+  std::print("\n");
+}
 
 }  // namespace volcano
