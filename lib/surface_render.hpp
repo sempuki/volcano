@@ -52,6 +52,7 @@ class SurfaceRenderer final : public Renderer {
 
   void Render() override {
     if (has_swapchain_) {
+      CHECK_INVARIANT(render_);
       render_();
     }
   }

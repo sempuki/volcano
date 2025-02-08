@@ -59,7 +59,6 @@ class Queue final {
         .pCommandBuffers = std::addressof(command_buffer),
         .signalSemaphoreCount = 1,
         .pSignalSemaphores = std::addressof(signal_semaphore),
-
     }};
 
     ::VkResult result =
@@ -587,7 +586,7 @@ class GraphicsPipeline final {
             ::VkVertexInputAttributeDescription{
                 .location = 1,  // Declare "location 1".
                 .binding = 0,   // Wrt. "binding 0".
-                .format = VK_FORMAT_R32G32_SFLOAT,
+                .format = VK_FORMAT_R32G32B32_SFLOAT,
                 // offsetof(Vertex2D_ColorF_pack, color)
                 .offset = 2 * sizeof(float),
             },
@@ -655,12 +654,22 @@ class GraphicsPipeline final {
         color_blend_attchment_state{
             ::VkPipelineColorBlendAttachmentState{
                 .blendEnable = VK_FALSE,
+                .srcColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+                .dstColorBlendFactor = VK_BLEND_FACTOR_ZERO,
+                .colorBlendOp = VK_BLEND_OP_ADD,
+                .srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+                .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+                .alphaBlendOp = VK_BLEND_OP_ADD,
+                .colorWriteMask =
+                    VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+                    VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
             },
         };
 
     static ::VkPipelineColorBlendStateCreateInfo color_blend_state_info{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
         .attachmentCount =
             narrow_cast<std::uint32_t>(color_blend_attchment_state.size()),
         .pAttachments = color_blend_attchment_state.data(),
@@ -752,7 +761,11 @@ class Swapchain final {
         maybe_signal_fence,                       //
         std::addressof(next_image_index));
 
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    CHECK_POSTCONDITION(result == VK_SUCCESS ||
+                        result == VK_ERROR_OUT_OF_DATE_KHR ||  // Resize.
+                        result ==
+                            VK_ERROR_SURFACE_LOST_KHR ||  // Recreate surface.
+                        result == VK_SUBOPTIMAL_KHR);
     return next_image_index;
   }
 
@@ -768,7 +781,11 @@ class Swapchain final {
     }};
 
     ::VkResult result = ::vkQueuePresentKHR(queue, present_info.address());
-    CHECK_POSTCONDITION(result == VK_SUCCESS);
+    CHECK_POSTCONDITION(result == VK_SUCCESS ||
+                        result == VK_ERROR_OUT_OF_DATE_KHR ||  // Resize.
+                        result ==
+                            VK_ERROR_SURFACE_LOST_KHR ||  // Recreate surface.
+                        result == VK_SUBOPTIMAL_KHR);
   }
 
  private:
@@ -886,7 +903,7 @@ class Device final {
     ::VkDeviceSize byte_offset = 0;
     return DeviceMemory{device_, byte_offset,
                         buffer.memory_requirements_().size, memory_type_index,
-                        buffer.buffer_};
+                        buffer};
   }
 
   CommandBufferBlock allocate_command_buffer_block(::VkCommandPool command_pool,

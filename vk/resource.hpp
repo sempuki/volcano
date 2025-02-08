@@ -53,11 +53,11 @@ class TypeValueAdapterBase : public BoxAdapterBase<VkType> {
 
  public:
   TypeValueAdapterBase() {
-    static_cast<VkType&>(*this).sType = TypeValue;  //
+    this->address()->sType = TypeValue;  //
   }
 
   TypeValueAdapterBase(const VkType& that) : BaseType{that} {
-    static_cast<VkType&>(*this).sType = TypeValue;  //
+    this->address()->sType = TypeValue;  //
   }
 };
 }  // namespace impl

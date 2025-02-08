@@ -77,6 +77,8 @@ struct SwapchainRenderContext final {
         command_buffer_block{device->allocate_command_buffer_block(  //
             *command_pool,                                           //
             swapchain_image_views.size())} {
+    CHECK_INVARIANT(swapchain_image_views.size() == framebuffers.size());
+
     for (std::uint32_t i = 0; i < framebuffers.size(); ++i) {
       auto render_pass_command_builder =
           command_buffer_block.create_render_pass_command_builder(
@@ -90,7 +92,7 @@ struct SwapchainRenderContext final {
     }
 
     image_acquired = device->create_semaphores(max_frame_count);
-    image_rendered = device->create_semaphores(max_frame_count);
+    image_rendered = device->create_semaphores(swapchain_image_views.size());
     frame_present =
         device->create_fences(max_frame_count, VK_FENCE_CREATE_SIGNALED_BIT);
   }
@@ -155,7 +157,7 @@ int main() {
       vertex_buffer_byte_count                                         //
   };
 
-  Window::Geometry initial_window_geometry{.width = 800, .height = 600};
+  Window::Geometry initial_window_geometry{.width = 800, .height = 800};
   std::unique_ptr<Window> window = std::make_unique<glfw::PlatformWindow>(
       "hello-window", initial_window_geometry);
 
@@ -202,7 +204,8 @@ int main() {
         auto* context = swapchain_render_context.get();
         CHECK_INVARIANT(context->frame_present.size() == max_frame_count);
         CHECK_INVARIANT(context->image_acquired.size() == max_frame_count);
-        CHECK_INVARIANT(context->image_rendered.size() == max_frame_count);
+        CHECK_INVARIANT(context->image_rendered.size() ==
+                        context->swapchain_image_views.size());
 
         auto frame_index = context->frame_present_index;
         context->frame_present_index =
@@ -216,11 +219,11 @@ int main() {
             context->render_pass_command[image_index],      //
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  //
             context->image_acquired[frame_index],           //
-            context->image_rendered[frame_index],           //
+            context->image_rendered[image_index],           //
             context->frame_present[frame_index]);
 
         context->swapchain.present(image_index, queue,
-                                   context->image_rendered[frame_index]);
+                                   context->image_rendered[image_index]);
       }));
 
   window->show();
