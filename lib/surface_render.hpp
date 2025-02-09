@@ -15,15 +15,13 @@ class SurfaceRenderer final : public Renderer {
   virtual ~SurfaceRenderer() = default;
 
   template <typename DoRecreateSwapchainType, typename DoRenderType>
-  explicit SurfaceRenderer(                                    //
-      ::VkSurfaceKHR surface,                                  //
-      const ::VkSurfaceCapabilitiesKHR& surface_capabilities,  //
-      std::span<::VkSurfaceFormatKHR> surface_formats,         //
-      DoRecreateSwapchainType&& recreate_swapchain,            //
+  explicit SurfaceRenderer(                          //
+      ::VkPhysicalDevice phys_device,                //
+      ::VkSurfaceKHR surface,                        //
+      DoRecreateSwapchainType&& recreate_swapchain,  //
       DoRenderType&& render)
-      : surface_{surface},
-        surface_capabilities_{surface_capabilities},
-        surface_formats_{surface_formats},
+      : phys_device_{phys_device},
+        surface_{surface},
         render_{std::forward<DoRenderType>(render)},
         recreate_swapchain_{
             std::forward<DoRecreateSwapchainType>(recreate_swapchain)} {
@@ -34,12 +32,15 @@ class SurfaceRenderer final : public Renderer {
   bool HasSwapchain() const override { return has_swapchain_; }
 
   void RecreateSwapchain(::VkExtent2D geometry) override {
+    vk::PhysicalDeviceSurfaceCapabilities surface_capabilities{phys_device_,
+                                                               surface_};
+
     const bool can_create_swapchain = {
-        geometry.width >= surface_capabilities_().minImageExtent.width &&    //
-        geometry.width <= surface_capabilities_().maxImageExtent.width &&    //
-        geometry.width > 0 &&                                                //
-        geometry.height >= surface_capabilities_().minImageExtent.height &&  //
-        geometry.height <= surface_capabilities_().maxImageExtent.height &&  //
+        geometry.width >= surface_capabilities().minImageExtent.width &&    //
+        geometry.width <= surface_capabilities().maxImageExtent.width &&    //
+        geometry.width > 0 &&                                               //
+        geometry.height >= surface_capabilities().minImageExtent.height &&  //
+        geometry.height <= surface_capabilities().maxImageExtent.height &&  //
         geometry.height > 0};
 
     if (!can_create_swapchain) {
@@ -58,9 +59,8 @@ class SurfaceRenderer final : public Renderer {
   }
 
  private:
+  ::VkPhysicalDevice phys_device_ = VK_NULL_HANDLE;
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
-  vk::PhysicalDeviceSurfaceCapabilities surface_capabilities_;
-  vk::PhysicalDeviceSurfaceFormats surface_formats_;
   bool has_swapchain_ = false;
 
   std::move_only_function<void()> render_;

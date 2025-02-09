@@ -916,11 +916,15 @@ class Device final {
   }
 
   RenderPass create_render_pass(::VkFormat requested) {
-    CHECK_PRECONDITION(std::any_of(surface_formats_().begin(),
-                                   surface_formats_().end(),
+    ::VkPhysicalDevice phys_device = device_.parent();
+    vk::PhysicalDeviceSurfaceFormats surface_formats{phys_device, surface_};
+
+    CHECK_PRECONDITION(std::any_of(surface_formats().begin(),
+                                   surface_formats().end(),
                                    [requested](::VkSurfaceFormatKHR supported) {
                                      return supported.format == requested;
                                    }));
+
     return RenderPass{device_, requested};
   }
 
@@ -928,10 +932,10 @@ class Device final {
   std::unique_ptr<SurfaceRenderer> create_surface_renderer(  //
       DoRecreateSwapchainType&& recreate_swapchain,          //
       DoRenderType&& render) {
+    ::VkPhysicalDevice phys_device = device_.parent();
     return std::make_unique<SurfaceRenderer>(                       //
+        phys_device,                                                //
         surface_,                                                   //
-        surface_capabilities_,                                      //
-        surface_formats_,                                           //
         std::forward<DoRecreateSwapchainType>(recreate_swapchain),  //
         std::forward<DoRenderType>(render));
   }
@@ -941,36 +945,48 @@ class Device final {
     return ShaderModule{device_, shader_spirv_bin};
   }
 
-  Swapchain create_swapchain(                   //
-      ::VkFormat requested_format,              //
-      ::VkPresentModeKHR surface_present_mode,  //
+  Swapchain create_swapchain(                     //
+      ::VkExtent2D requested_geometry,            //
+      ::VkFormat requested_format,                //
+      ::VkPresentModeKHR requested_present_mode,  //
       ::VkSwapchainKHR previous_swapchain = VK_NULL_HANDLE) {
+    ::VkPhysicalDevice phys_device = device_.parent();
+    vk::PhysicalDeviceSurfaceFormats surface_formats{phys_device, surface_};
+    vk::PhysicalDeviceSurfacePresentModes surface_present_modes{phys_device,
+                                                                surface_};
+    vk::PhysicalDeviceSurfaceCapabilities surface_capabilities{phys_device,
+                                                               surface_};
     auto surface_format_iter =
-        std::find_if(surface_formats_().begin(), surface_formats_().end(),
+        std::find_if(surface_formats().begin(), surface_formats().end(),
                      [requested_format](::VkSurfaceFormatKHR supported) {
                        return supported.format == requested_format;
                      });
-    CHECK_PRECONDITION(surface_format_iter != surface_formats_().end());
-    CHECK_PRECONDITION(std::find(surface_present_modes_().begin(),  //
-                                 surface_present_modes_().end(),    //
-                                 surface_present_mode) !=
-                       surface_present_modes_().end());
+    CHECK_PRECONDITION(surface_format_iter != surface_formats().end());
+    CHECK_PRECONDITION(std::find(surface_present_modes().begin(),
+                                 surface_present_modes().end(),
+                                 requested_present_mode) !=
+                       surface_present_modes().end());
 
-    return Swapchain{device_,                //
-                     queue_families_,        //
-                     surface_,               //
-                     surface_capabilities_,  //
-                     *surface_format_iter,   //
-                     surface_present_mode,   //
+    return Swapchain{device_,                 //
+                     queue_families_,         //
+                     surface_,                //
+                     surface_capabilities,    //
+                     *surface_format_iter,    //
+                     requested_present_mode,  //
                      previous_swapchain};
   }
 
   std::vector<Framebuffer> create_framebuffers(
       ::VkRenderPass render_pass, std::span<::VkImageView> image_views) {
     std::vector<Framebuffer> result;
+
+    ::VkPhysicalDevice phys_device = device_.parent();
+    vk::PhysicalDeviceSurfaceCapabilities surface_capabilities{phys_device,
+                                                               surface_};
+
     for (auto&& image_view : image_views) {
       result.push_back(Framebuffer{device_, render_pass, image_view,
-                                   surface_capabilities_().currentExtent});
+                                   surface_capabilities().currentExtent});
     }
     return result;
   }
@@ -983,12 +999,15 @@ class Device final {
                                             ::VkShaderModule fragment_shader,
                                             ::VkPipelineLayout pipeline_layout,
                                             ::VkRenderPass render_pass) {
+    ::VkPhysicalDevice phys_device = device_.parent();
+    vk::PhysicalDeviceSurfaceCapabilities surface_capabilities{phys_device,
+                                                               surface_};
     return GraphicsPipeline{device_,          //
                             vertex_shader,    //
                             fragment_shader,  //
                             pipeline_layout,  //
                             render_pass,      //
-                            surface_capabilities_().currentExtent};
+                            surface_capabilities().currentExtent};
   }
 
   std::vector<Semaphore> create_semaphores(std::uint32_t count) {
@@ -1047,43 +1066,30 @@ class Device final {
         }};
 
     surface_ = vk::Surface{instance, surface};
-    surface_formats_ = vk::PhysicalDeviceSurfaceFormats{phys_device, surface};
-    surface_present_modes_ =
-        vk::PhysicalDeviceSurfacePresentModes{phys_device, surface};
-    surface_capabilities_ =
-        vk::PhysicalDeviceSurfaceCapabilities{phys_device, surface};
 
+    vk::PhysicalDeviceSurfaceFormats surface_formats{phys_device, surface};
     std::print("Surface Formats: \n");
-    for (auto&& surface_format : surface_formats_()) {
+    for (auto&& surface_format : surface_formats()) {
       std::print(" :: {}\n", vk::convert_to_string(surface_format.format));
     }
 
+    vk::PhysicalDeviceSurfacePresentModes surface_present_modes{phys_device,
+                                                                surface};
     std::print("Surface Present Modes: \n");
-    for (auto&& surface_present_mode : surface_present_modes_()) {
+    for (auto&& surface_present_mode : surface_present_modes()) {
       std::print(" '' {}\n", vk::convert_to_string(surface_present_mode));
     }
 
+    vk::PhysicalDeviceSurfaceCapabilities surface_capabilities{phys_device,
+                                                               surface};
     std::print("Surface Capabilities: \n");
     std::print(" .. Image Count: {},{}\n",  //
-               surface_capabilities_().minImageCount,
-               surface_capabilities_().maxImageCount);
-    std::print(" .. Image Extent Current: {},{}\n",  //
-               surface_capabilities_().currentExtent.width,
-               surface_capabilities_().currentExtent.height);
-    std::print(" .. Image Extent Min: {},{}\n",  //
-               surface_capabilities_().minImageExtent.width,
-               surface_capabilities_().minImageExtent.height);
-    std::print(" .. Image Extent Max: {},{}\n",  //
-               surface_capabilities_().maxImageExtent.width,
-               surface_capabilities_().maxImageExtent.height);
+               surface_capabilities().minImageCount,
+               surface_capabilities().maxImageCount);
   }
 
   vk::Device device_;
   vk::Surface surface_;
-
-  vk::PhysicalDeviceSurfaceFormats surface_formats_;
-  vk::PhysicalDeviceSurfacePresentModes surface_present_modes_;
-  vk::PhysicalDeviceSurfaceCapabilities surface_capabilities_;
 
   vk::PhysicalDeviceFeatures phys_device_features_;
   vk::PhysicalDeviceMemoryProperties phys_device_memory_properties_;
