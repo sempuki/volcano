@@ -60,6 +60,7 @@ struct SwapchainRenderContext final {
         vert_shader{vert_shader},
         frag_shader{frag_shader},
         swapchain{device->create_swapchain(  //
+            geometry,                        //
             VK_FORMAT_B8G8R8A8_UNORM,        //
             VK_PRESENT_MODE_FIFO_KHR,        //
             previous_swapchain)},            //
