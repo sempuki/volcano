@@ -1,4 +1,4 @@
-#include "lib/resource.hpp"
+#include "engine/resource.hpp"
 
 #include "base/testing.hpp"
 

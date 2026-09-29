@@ -18,7 +18,7 @@ git submodule update --init
 
 bazel test //...
 # Tests that open a window need the session's display:
-bazel test --config=display //lib:glfw_window_test //lib:integration_test
+bazel test --config=display //engine:glfw_window_test //engine:integration_test
 bazel run //:hello
 ```
 

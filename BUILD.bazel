@@ -10,10 +10,10 @@ cc_binary(
     srcs = ["hello.cpp"],
     copts = COPTS,
     deps = [
-        "//lib:glfw_window",
-        "//lib:render",
-        "//lib:resource",
-        "//lib:surface_render",
+        "//engine:glfw_window",
+        "//engine:render",
+        "//engine:resource",
+        "//engine:surface_render",
         "//shaders",
     ],
 )

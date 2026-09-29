@@ -1,7 +1,7 @@
-#include "lib/glfw_window.hpp"
-#include "lib/render.hpp"
-#include "lib/resource.hpp"
-#include "lib/surface_render.hpp"
+#include "engine/glfw_window.hpp"
+#include "engine/render.hpp"
+#include "engine/resource.hpp"
+#include "engine/surface_render.hpp"
 #include "shaders/shaders.hpp"
 
 #include <cmath>

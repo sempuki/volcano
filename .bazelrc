@@ -15,5 +15,5 @@ test --test_output=errors
 try-import %workspace%/user.bazelrc
 
 # Windowed/GPU tests (tagged manual) need the session's display:
-#   bazel test --config=display //lib:glfw_window_test //lib:integration_test
+#   bazel test --config=display //engine:glfw_window_test //engine:integration_test
 test:display --test_env=DISPLAY --test_env=WAYLAND_DISPLAY --test_env=XDG_RUNTIME_DIR

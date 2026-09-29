@@ -10,8 +10,8 @@
 #include <sstream>
 #include <vector>
 
-#include "lib/base.hpp"
-#include "lib/surface_render.hpp"
+#include "engine/base.hpp"
+#include "engine/surface_render.hpp"
 #include "vk/resource.hpp"
 
 namespace volcano {

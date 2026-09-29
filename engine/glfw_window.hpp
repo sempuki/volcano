@@ -2,9 +2,9 @@
 
 #include <vector>
 
-#include "lib/base.hpp"
-#include "lib/render.hpp"
-#include "lib/window.hpp"
+#include "engine/base.hpp"
+#include "engine/render.hpp"
+#include "engine/window.hpp"
 #include "vk/resource.hpp"
 
 // NOTE: Do not include OpenGL headers.

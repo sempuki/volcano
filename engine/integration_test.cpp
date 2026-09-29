@@ -1,5 +1,5 @@
-#include "lib/glfw_window.hpp"
-#include "lib/resource.hpp"
+#include "engine/glfw_window.hpp"
+#include "engine/resource.hpp"
 
 #include "base/testing.hpp"
 
