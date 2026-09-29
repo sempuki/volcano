@@ -71,6 +71,17 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "glfw_static_state_test",
+    size = "small",
+    srcs = ["glfw_static_state_test.cpp"],
+    copts = COPTS,
+    deps = [
+        ":glfw_window",
+        "@lib//base:testing",
+    ],
+)
+
 cc_library(
     name = "resource",
     hdrs = ["resource.hpp"],

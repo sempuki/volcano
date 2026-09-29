@@ -7,6 +7,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <optional>
 #include <sstream>
 #include <vector>
 
@@ -120,7 +121,6 @@ class Fence final {
         ::vkWaitForFences(fence_.parent(), 1, std::addressof(fence_.handle()),
                           VK_TRUE, timeout.count());
     CHECK_POSTCONDITION(result == VK_SUCCESS);
-    reset();
   }
 
   void reset() {
@@ -729,6 +729,17 @@ class ShaderModule final {
   vk::ShaderModule shader_module_;
 };
 
+// One more image than the minimum, so acquiring does not wait on the driver,
+// but no more than the maximum. A maximum of 0 means there is no limit.
+inline std::uint32_t choose_swapchain_image_count(
+    const ::VkSurfaceCapabilitiesKHR& capabilities) {
+  std::uint32_t count = capabilities.minImageCount + 1;
+  if (capabilities.maxImageCount > 0) {
+    count = std::min(count, capabilities.maxImageCount);
+  }
+  return count;
+}
+
 //------------------------------------------------------------------------------
 class Swapchain final {
  public:
@@ -750,7 +761,9 @@ class Swapchain final {
     return result;
   }
 
-  std::uint32_t acquire_next_image(
+  // Returns no index when the swapchain is out of date or the surface is lost.
+  // In that case nothing was acquired and no semaphore or fence is signaled.
+  std::optional<std::uint32_t> acquire_next_image(
       ::VkSemaphore maybe_signal_semaphore = VK_NULL_HANDLE,
       ::VkFence maybe_signal_fence = VK_NULL_HANDLE,
       std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) {
@@ -769,6 +782,10 @@ class Swapchain final {
                         result ==
                             VK_ERROR_SURFACE_LOST_KHR ||  // Recreate surface.
                         result == VK_SUBOPTIMAL_KHR);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR ||
+        result == VK_ERROR_SURFACE_LOST_KHR) {
+      return std::nullopt;
+    }
     return next_image_index;
   }
 
@@ -819,7 +836,8 @@ class Swapchain final {
     swapchain_ = vk::Swapchain{
         device, ::VkSwapchainCreateInfoKHR{
                     .surface = surface_,
-                    .minImageCount = surface_capabilities_.minImageCount + 1,
+                    .minImageCount =
+                        choose_swapchain_image_count(surface_capabilities_),
                     .imageFormat = surface_format_.format,
                     .imageColorSpace = surface_format_.colorSpace,
                     .imageExtent = extent_,
@@ -1138,9 +1156,7 @@ class Instance final {
             const ::VkPhysicalDeviceProperties& phys_device_property,
             std::uint32_t queue_family_i,
             const ::VkQueueFamilyProperties& queue_family_properties) -> bool {
-          if ((phys_device_property.deviceType ==
-               VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) &&
-              (queue_family_properties.queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+          if (queue_family_properties.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
             ::VkBool32 is_supported = VK_FALSE;
             ::VkResult selected_result = ::vkGetPhysicalDeviceSurfaceSupportKHR(
                 phys_device, queue_family_i, surface,
@@ -1151,6 +1167,23 @@ class Instance final {
           return false;
         });
     CHECK_POSTCONDITION(selected_result.size());
+
+    // Prefer a discrete GPU, then an integrated one, then anything else (e.g.
+    // llvmpipe), keeping enumeration order within each kind.
+    auto rank = [this](const FindQueueFamilyResult& result) {
+      switch (phys_device_properties_[result.phys_device]().deviceType) {
+        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+          return 0;
+        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+          return 1;
+        default:
+          return 2;
+      }
+    };
+    std::stable_sort(selected_result.begin(), selected_result.end(),
+                     [&rank](const auto& a, const auto& b) {
+                       return rank(a) < rank(b);
+                     });
     CHECK_POSTCONDITION(selected_result.front().phys_device != VK_NULL_HANDLE);
 
     ::VkPhysicalDevice selected_phys_device =
@@ -1343,8 +1376,10 @@ class Instance final {
     CHECK_PRECONDITION(
         data->sType ==
         VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT);
+    // pMessageIdName may be null.
     std::print("[{}] <{}> {}\n", vk::convert_to_string(message_severity),
-               data->pMessageIdName, data->pMessage);
+               data->pMessageIdName ? data->pMessageIdName : "",
+               data->pMessage ? data->pMessage : "");
     // std::cout << "Queue Labels: \n";
     // for (std::uint32_t i = 0; i < data->queueLabelCount; ++i) {
     //   const ::VkDebugUtilsLabelEXT& _ = data->pQueueLabels[i];

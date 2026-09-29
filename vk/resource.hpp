@@ -322,29 +322,40 @@ namespace impl {
 template <typename EnumeratorType, typename PropertyType>
 inline void maybe_enumerate_properties(
     EnumeratorType&& enumerate, InOut<std::vector<PropertyType>> properties) {
-  std::uint32_t count = 0;
   std::vector<PropertyType> current;
 
-  // Gather the required array size.
-  invoke_with_continuation(
-      Overloaded(
-          [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
-          []() {}),
-      enumerate, std::addressof(count), nullptr);
-  current.resize(count);
+  // The count can change between the two calls. Retry on VK_INCOMPLETE, and
+  // keep only as many entries as the second call wrote.
+  for (bool incomplete = true; incomplete;) {
+    incomplete = false;
 
-  // Gather the enumerated properties.
-  if (count) {
+    // Gather the required array size.
+    std::uint32_t count = 0;
     invoke_with_continuation(
         Overloaded(
             [](::VkResult result) { CHECK_INVARIANT(result == VK_SUCCESS); },
             []() {}),
-        enumerate, std::addressof(count), current.data());
+        enumerate, std::addressof(count), nullptr);
+    current.resize(count);
+    if (!count) {
+      break;
+    }
 
-    properties->insert(properties->end(),  //
-                       current.begin(),    //
-                       current.end());
+    // Gather the enumerated properties.
+    invoke_with_continuation(
+        Overloaded(
+            [&incomplete](::VkResult result) {
+              CHECK_INVARIANT(result == VK_SUCCESS || result == VK_INCOMPLETE);
+              incomplete = (result == VK_INCOMPLETE);
+            },
+            []() {}),
+        enumerate, std::addressof(count), current.data());
+    current.resize(count);
   }
+
+  properties->insert(properties->end(),  //
+                     current.begin(),    //
+                     current.end());
 }
 
 template <typename PropertyType>
@@ -547,6 +558,9 @@ class HandleBase {
 
   HandleBase& operator=(HandleBase&& that) noexcept {
     if (this != &that) {
+      if (handle_) {
+        CloseHandle(handle_);
+      }
       handle_ = std::exchange(that.handle_, nullptr);
       info_ = std::move(that.info_);
     }
@@ -647,6 +661,9 @@ class ParentedHandleBase {
 
   ParentedHandleBase& operator=(ParentedHandleBase&& that) noexcept {
     if (this != &that) {
+      if (handle_) {
+        CloseHandle(parent_, handle_);
+      }
       parent_ = std::exchange(that.parent_, nullptr);
       handle_ = std::exchange(that.handle_, nullptr);
       info_ = std::move(that.info_);
@@ -730,8 +747,9 @@ using InstanceBase =                  //
 
 namespace impl {
 inline void end_device_adapter(::VkPhysicalDevice /*physical*/, ::VkDevice device) {
-  ::VkResult result = ::vkDeviceWaitIdle(device);
-  CHECK_POSTCONDITION(result == VK_SUCCESS);
+  // This runs from a destructor, so it must not throw. A lost device fails the
+  // wait but must still be destroyed.
+  [[maybe_unused]] ::VkResult result = ::vkDeviceWaitIdle(device);
   ::vkDestroyDevice(device, ALLOCATOR);
 }
 }  // namespace impl
@@ -1033,6 +1051,9 @@ class CommandBufferBlock final {
 
   CommandBufferBlock& operator=(CommandBufferBlock&& that) noexcept {
     if (this != &that) {
+      if (block_.size()) {
+        ::vkFreeCommandBuffers(device_, pool_, block_.size(), block_.data());
+      }
       device_ = std::exchange(that.device_, VK_NULL_HANDLE);
       pool_ = std::exchange(that.pool_, VK_NULL_HANDLE);
       block_ = std::move(that.block_);
@@ -1168,6 +1189,9 @@ class DebugMessenger final {
 
   DebugMessenger& operator=(DebugMessenger&& that) noexcept {
     if (this != &that) {
+      if (handle_ != VK_NULL_HANDLE) {
+        destroy_(instance_, handle_, ALLOCATOR);
+      }
       instance_ = std::exchange(that.instance_, VK_NULL_HANDLE);
       handle_ = std::exchange(that.handle_, VK_NULL_HANDLE);
       submit_ = std::exchange(that.submit_, nullptr);
@@ -1228,8 +1252,8 @@ inline std::string_view convert_to_string(
     default:
       break;
   }
-  CHECK_UNREACHABLE();
-  return {};
+  // Drivers and extensions can report values newer than this list.
+  return "UNKNOWN";
 }
 
 inline std::string_view convert_to_string(::VkPhysicalDeviceType _) {
@@ -1247,8 +1271,8 @@ inline std::string_view convert_to_string(::VkPhysicalDeviceType _) {
     default:
       break;
   }
-  CHECK_UNREACHABLE();
-  return {};
+  // Drivers and extensions can report values newer than this list.
+  return "UNKNOWN";
 }
 
 inline std::string_view convert_to_string(::VkQueueFlagBits _) {
@@ -1270,8 +1294,8 @@ inline std::string_view convert_to_string(::VkQueueFlagBits _) {
     default:
       break;
   }
-  CHECK_UNREACHABLE();
-  return {};
+  // Drivers and extensions can report values newer than this list.
+  return "UNKNOWN";
 }
 
 inline std::string convert_to_string(::VkQueueFlags flags) {
@@ -1771,8 +1795,8 @@ inline std::string_view convert_to_string(::VkFormat _) {
     default:
       break;
   }
-  CHECK_UNREACHABLE();
-  return {};
+  // Drivers and extensions can report values newer than this list.
+  return "UNKNOWN";
 }
 
 inline std::string_view convert_to_string(::VkPresentModeKHR _) {
@@ -1788,8 +1812,8 @@ inline std::string_view convert_to_string(::VkPresentModeKHR _) {
     default:
       break;
   }
-  CHECK_UNREACHABLE();
-  return {};
+  // Drivers and extensions can report values newer than this list.
+  return "UNKNOWN";
 }
 
 }  // namespace volcano::vk

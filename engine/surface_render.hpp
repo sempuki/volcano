@@ -1,5 +1,7 @@
 #pragma once
 
+#include <limits>
+
 #include "engine/base.hpp"
 #include "engine/render.hpp"
 #include "vk/resource.hpp"
@@ -41,7 +43,12 @@ class SurfaceRenderer final : public Renderer {
         geometry.width > 0 &&                                               //
         geometry.height >= surface_capabilities().minImageExtent.height &&  //
         geometry.height <= surface_capabilities().maxImageExtent.height &&  //
-        geometry.height > 0};
+        geometry.height > 0 &&                                              //
+        // A defined current extent of 0x0 means the surface is minimized.
+        (surface_capabilities().currentExtent.width ==
+             std::numeric_limits<std::uint32_t>::max() ||
+         (surface_capabilities().currentExtent.width > 0 &&
+          surface_capabilities().currentExtent.height > 0))};
 
     if (!can_create_swapchain) {
       has_swapchain_ = false;

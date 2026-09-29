@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <vector>
 
 #include "engine/base.hpp"
@@ -33,6 +34,8 @@ class StaticState final {
   bool link(::GLFWwindow* glfw_window, PlatformWindow* platform_window) {
     return map_.try_emplace(glfw_window, platform_window).second;
   }
+
+  void unlink(::GLFWwindow* glfw_window) { map_.erase(glfw_window); }
 
   PlatformWindow* find(::GLFWwindow* glfw_window) const {
     auto iter = map_.find(glfw_window);
@@ -107,6 +110,7 @@ class PlatformWindow final : public Window {
   PlatformWindow() = delete;
   ~PlatformWindow() {
     if (glfw_window_) {
+      impl::StaticState::instance().unlink(glfw_window_);
       ::glfwDestroyWindow(glfw_window_);
     }
   }
@@ -158,11 +162,11 @@ class PlatformWindow final : public Window {
     if (!renderer().HasSwapchain()) {
       int width = 0, height = 0;
       ::glfwGetWindowSize(glfw_window_, &width, &height);
-      CHECK_PRECONDITION(width > 0 && height > 0)
 
+      // A 0x0 size (e.g. minimized) leaves the renderer without a swapchain.
       renderer().RecreateSwapchain(
-          {.width = static_cast<std::uint32_t>(width),
-           .height = static_cast<std::uint32_t>(height)});
+          {.width = static_cast<std::uint32_t>(std::max(width, 0)),
+           .height = static_cast<std::uint32_t>(std::max(height, 0))});
     }
 
     while (!impl::StaticState::instance().has_pending_errors() &&
@@ -191,10 +195,11 @@ class PlatformWindow final : public Window {
         impl::StaticState::instance().find(window);
     CHECK_INVARIANT(platform_window);
 
-    CHECK_PRECONDITION(width > 0 && height > 0)
+    // Minimizing reports 0x0, which leaves the renderer without a swapchain
+    // until the window is restored. Throwing here would cross a C callback.
     platform_window->renderer().RecreateSwapchain(
-        {.width = static_cast<std::uint32_t>(width),
-         .height = static_cast<std::uint32_t>(height)});
+        {.width = static_cast<std::uint32_t>(std::max(width, 0)),
+         .height = static_cast<std::uint32_t>(std::max(height, 0))});
   }
 
   static void window_refresh_callback(  //

@@ -215,8 +215,15 @@ int main() {
             (context->frame_present_index + 1) % context->frame_present.size();
 
         context->frame_present[frame_index].wait();
-        auto image_index = context->swapchain.acquire_next_image(
+        auto maybe_image_index = context->swapchain.acquire_next_image(
             context->image_acquired[frame_index]);
+        if (!maybe_image_index) {
+          // Skip the frame and leave the fence signaled for the next one.
+          // The resize callback recreates the swapchain.
+          return;
+        }
+        auto image_index = *maybe_image_index;
+        context->frame_present[frame_index].reset();
 
         queue.submit(                                       //
             context->render_pass_command[image_index],      //
