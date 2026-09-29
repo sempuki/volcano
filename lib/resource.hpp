@@ -5,6 +5,7 @@
 #include <bitset>
 #include <chrono>
 #include <functional>
+#include <limits>
 #include <map>
 #include <sstream>
 #include <vector>
@@ -739,6 +740,8 @@ class Swapchain final {
 
   operator ::VkSwapchainKHR() const { return swapchain_.handle(); }
 
+  ::VkExtent2D extent() const { return extent_; }
+
   std::vector<::VkImageView> create_image_views() {
     std::vector<::VkImageView> result;
     for (auto&& image_view : image_views_) {
@@ -797,8 +800,10 @@ class Swapchain final {
                      const ::VkSurfaceCapabilitiesKHR& surface_capabilities,  //
                      const ::VkSurfaceFormatKHR& surface_format,              //
                      ::VkPresentModeKHR surface_present_mode,                 //
+                     ::VkExtent2D extent,                                     //
                      ::VkSwapchainKHR previous_swapchain)
       : queue_families_{std::move(queue_families)},
+        extent_{extent},
         surface_{surface},
         surface_capabilities_{surface_capabilities},
         surface_format_{surface_format} {
@@ -817,7 +822,7 @@ class Swapchain final {
                     .minImageCount = surface_capabilities_.minImageCount + 1,
                     .imageFormat = surface_format_.format,
                     .imageColorSpace = surface_format_.colorSpace,
-                    .imageExtent = surface_capabilities_.currentExtent,
+                    .imageExtent = extent_,
                     .imageArrayLayers = 1,  // Non-stereoscopic.
                     .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                     .imageSharingMode = queue_families_.size() > 1
@@ -846,11 +851,30 @@ class Swapchain final {
 
   std::vector<ImageView> image_views_;
   std::vector<std::uint32_t> queue_families_;
+  ::VkExtent2D extent_;
 
   ::VkSurfaceKHR surface_ = VK_NULL_HANDLE;
   ::VkSurfaceCapabilitiesKHR surface_capabilities_;
   ::VkSurfaceFormatKHR surface_format_;
 };
+
+// The surface's current extent, or, where the surface leaves the size to the
+// swapchain (0xFFFFFFFF, e.g. Wayland), the requested size clamped to what the
+// surface supports.
+inline ::VkExtent2D choose_swapchain_extent(
+    const ::VkSurfaceCapabilitiesKHR& capabilities,
+    ::VkExtent2D requested) {
+  if (capabilities.currentExtent.width !=
+      std::numeric_limits<std::uint32_t>::max()) {
+    return capabilities.currentExtent;
+  }
+  return ::VkExtent2D{
+      .width = std::clamp(requested.width, capabilities.minImageExtent.width,
+                          capabilities.maxImageExtent.width),
+      .height = std::clamp(requested.height, capabilities.minImageExtent.height,
+                           capabilities.maxImageExtent.height),
+  };
+}
 
 //------------------------------------------------------------------------------
 class Device final {
@@ -945,10 +969,8 @@ class Device final {
     return ShaderModule{device_, shader_spirv_bin};
   }
 
-  // TODO: requested_geometry is ignored; the extent comes from the surface's
-  // currentExtent, which is 0xFFFFFFFF ("caller decides") on Wayland.
-  Swapchain create_swapchain(                                      //
-      [[maybe_unused]] ::VkExtent2D requested_geometry,            //
+  Swapchain create_swapchain(                     //
+      ::VkExtent2D requested_geometry,            //
       ::VkFormat requested_format,                //
       ::VkPresentModeKHR requested_present_mode,  //
       ::VkSwapchainKHR previous_swapchain = VK_NULL_HANDLE) {
@@ -975,20 +997,17 @@ class Device final {
                      surface_capabilities,    //
                      *surface_format_iter,    //
                      requested_present_mode,  //
+                     choose_swapchain_extent(surface_capabilities(),
+                                             requested_geometry),
                      previous_swapchain};
   }
 
   std::vector<Framebuffer> create_framebuffers(
-      ::VkRenderPass render_pass, std::span<::VkImageView> image_views) {
+      ::VkRenderPass render_pass, std::span<::VkImageView> image_views,
+      ::VkExtent2D extent) {
     std::vector<Framebuffer> result;
-
-    ::VkPhysicalDevice phys_device = device_.parent();
-    vk::PhysicalDeviceSurfaceCapabilities surface_capabilities{phys_device,
-                                                               surface_};
-
     for (auto&& image_view : image_views) {
-      result.push_back(Framebuffer{device_, render_pass, image_view,
-                                   surface_capabilities().currentExtent});
+      result.push_back(Framebuffer{device_, render_pass, image_view, extent});
     }
     return result;
   }
@@ -1000,16 +1019,14 @@ class Device final {
   GraphicsPipeline create_graphics_pipeline(::VkShaderModule vertex_shader,
                                             ::VkShaderModule fragment_shader,
                                             ::VkPipelineLayout pipeline_layout,
-                                            ::VkRenderPass render_pass) {
-    ::VkPhysicalDevice phys_device = device_.parent();
-    vk::PhysicalDeviceSurfaceCapabilities surface_capabilities{phys_device,
-                                                               surface_};
+                                            ::VkRenderPass render_pass,
+                                            ::VkExtent2D extent) {
     return GraphicsPipeline{device_,          //
                             vertex_shader,    //
                             fragment_shader,  //
                             pipeline_layout,  //
                             render_pass,      //
-                            surface_capabilities().currentExtent};
+                            extent};
   }
 
   std::vector<Semaphore> create_semaphores(std::uint32_t count) {

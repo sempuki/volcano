@@ -68,13 +68,15 @@ struct SwapchainRenderContext final {
         render_pass{device->create_render_pass(VK_FORMAT_B8G8R8A8_UNORM)},
         framebuffers{device->create_framebuffers(  //
             render_pass,                           //
-            swapchain_image_views)},
+            swapchain_image_views,                 //
+            swapchain.extent())},
         pipeline_layout{device->create_pipeline_layout()},
         graphics_pipeline{device->create_graphics_pipeline(  //
             vert_shader,                                     //
             frag_shader,                                     //
             pipeline_layout,                                 //
-            render_pass)},
+            render_pass,                                     //
+            swapchain.extent())},
         command_buffer_block{device->allocate_command_buffer_block(  //
             *command_pool,                                           //
             swapchain_image_views.size())} {
