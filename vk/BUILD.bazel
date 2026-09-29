@@ -1,0 +1,35 @@
+# Copyright 2024 -- CONTRIBUTORS. See LICENSE.
+
+load("@lib//bazel:copts.bzl", "COPTS")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# The Vulkan loader is not in the Bazel Central Registry; link the one the
+# platform provides (Linux distro package, or the LunarG Vulkan SDK on macOS
+# and Windows, found via VULKAN_SDK).
+cc_library(
+    name = "resource",
+    hdrs = ["resource.hpp"],
+    copts = COPTS,
+    linkopts = select({
+        "@platforms//os:windows": ["vulkan-1.lib"],
+        "//conditions:default": ["-lvulkan"],
+    }),
+    deps = [
+        "//lib:base",
+        "@vulkan_headers",
+    ],
+)
+
+cc_test(
+    name = "resource_test",
+    size = "small",
+    srcs = ["resource_test.cpp"],
+    copts = COPTS,
+    deps = [
+        ":resource",
+        "@lib//base:testing",
+    ],
+)

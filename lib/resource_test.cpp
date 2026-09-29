@@ -1,12 +1,12 @@
 #include "lib/resource.hpp"
 
-#include "lib/testing.hpp"
+#include "base/testing.hpp"
 
 namespace volcano {
 
 TEST_CASE("Application") {
   Application application{"test-app", 0};
-  auto instance = application.CreateInstance();
+  auto instance = application.create_instance();
 
   SECTION("ShouldPass") { REQUIRE(true); }
 }

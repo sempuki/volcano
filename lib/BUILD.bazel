@@ -1,0 +1,108 @@
+# Copyright 2024 -- CONTRIBUTORS. See LICENSE.
+
+load("@lib//bazel:copts.bzl", "COPTS")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# Tests that open a window or need a Vulkan device are tagged "manual" so that
+# `bazel test //...` stays headless; run them with --config=display.
+
+cc_library(
+    name = "base",
+    hdrs = ["base.hpp"],
+    deps = ["@lib//base:core"],
+)
+
+cc_library(
+    name = "render",
+    hdrs = ["render.hpp"],
+    copts = COPTS,
+    deps = [
+        ":base",
+        "//vk:resource",
+    ],
+)
+
+cc_library(
+    name = "window",
+    hdrs = ["window.hpp"],
+    copts = COPTS,
+    deps = [
+        ":base",
+        "//vk:resource",
+    ],
+)
+
+cc_library(
+    name = "surface_render",
+    hdrs = ["surface_render.hpp"],
+    copts = COPTS,
+    deps = [
+        ":base",
+        ":render",
+        "//vk:resource",
+    ],
+)
+
+cc_library(
+    name = "glfw_window",
+    hdrs = ["glfw_window.hpp"],
+    copts = COPTS,
+    deps = [
+        ":base",
+        ":render",
+        ":window",
+        "//vk:resource",
+        "@glfw",
+    ],
+)
+
+cc_test(
+    name = "glfw_window_test",
+    size = "small",
+    srcs = ["glfw_window_test.cpp"],
+    copts = COPTS,
+    tags = ["manual"],
+    deps = [
+        ":glfw_window",
+        "@lib//base:testing",
+    ],
+)
+
+cc_library(
+    name = "resource",
+    hdrs = ["resource.hpp"],
+    copts = COPTS,
+    deps = [
+        ":base",
+        ":surface_render",
+        "//vk:resource",
+    ],
+)
+
+cc_test(
+    name = "resource_test",
+    size = "small",
+    srcs = ["resource_test.cpp"],
+    copts = COPTS,
+    deps = [
+        ":resource",
+        "@lib//base:testing",
+    ],
+)
+
+cc_test(
+    name = "integration_test",
+    size = "small",
+    srcs = ["integration_test.cpp"],
+    copts = COPTS,
+    tags = ["manual"],
+    deps = [
+        ":glfw_window",
+        ":render",
+        ":resource",
+        "@lib//base:testing",
+    ],
+)

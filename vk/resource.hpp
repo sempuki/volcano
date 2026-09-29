@@ -572,7 +572,7 @@ class HandleBase {
   }
 
   // Empty Init Constructor.
-  HandleBase(std::nullptr_t _) {}
+  HandleBase(std::nullptr_t) {}
 
   explicit operator bool() const { return handle_; }
   operator HandleType() const { return handle_; }
@@ -729,7 +729,7 @@ using InstanceBase =                  //
         ::vkDestroyInstance>;
 
 namespace impl {
-inline void end_device_adapter(::VkPhysicalDevice _, ::VkDevice device) {
+inline void end_device_adapter(::VkPhysicalDevice /*physical*/, ::VkDevice device) {
   ::VkResult result = ::vkDeviceWaitIdle(device);
   CHECK_POSTCONDITION(result == VK_SUCCESS);
   ::vkDestroyDevice(device, ALLOCATOR);

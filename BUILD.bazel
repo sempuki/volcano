@@ -1,16 +1,19 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+# Copyright 2024 -- CONTRIBUTORS. See LICENSE.
+
+load("@lib//bazel:copts.bzl", "COPTS")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
 package(default_visibility = ["//visibility:public"])
 
 cc_binary(
     name = "hello",
     srcs = ["hello.cpp"],
+    copts = COPTS,
     deps = [
         "//lib:glfw_window",
         "//lib:render",
-        "//lib:surface_render",
         "//lib:resource",
-        "//shaders:shaders",
+        "//lib:surface_render",
+        "//shaders",
     ],
 )
-

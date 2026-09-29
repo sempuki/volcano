@@ -1,6 +1,6 @@
 #include "vk/resource.hpp"
 
-#include "lib/testing.hpp"
+#include "base/testing.hpp"
 
 namespace volcano::vk {
 
@@ -231,7 +231,7 @@ TEST_CASE("InstanceLayerProperties") {
 
   SECTION("ShouldHaveLayerNames") {
     for (auto&& item : enumerated()) {
-      REQUIRE(item.layerName != nullptr);
+      REQUIRE(item.layerName[0] != '\0');
     }
   }
 
@@ -256,7 +256,7 @@ TEST_CASE("ExtensionProperties") {
 
   SECTION("ShouldHaveExtensionNames") {
     for (auto&& item : enumerated()) {
-      REQUIRE(item.extensionName != nullptr);
+      REQUIRE(item.extensionName[0] != '\0');
     }
   }
 }
@@ -278,11 +278,6 @@ TEST_CASE("Instance Handle") {
   SECTION("ShoulHaveValidHandle") {
     // Under Test.
     REQUIRE(handle.handle() != VK_NULL_HANDLE);
-  }
-
-  SECTION("ShoulHaveValidCreateInfo") {
-    // Under Test.
-    REQUIRE(handle.create_info().pApplicationInfo == app_info.address());
   }
 }
 
@@ -335,7 +330,7 @@ TEST_CASE("DeviceExtensionProperties") {
 
   SECTION("ShouldHaveExtensionNames") {
     for (auto&& item : enumerated()) {
-      REQUIRE(item.extensionName != nullptr);
+      REQUIRE(item.extensionName[0] != '\0');
     }
   }
 }

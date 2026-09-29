@@ -1,0 +1,14 @@
+# Copyright 2024 -- CONTRIBUTORS. See LICENSE.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "shaders",
+    hdrs = [
+        "hello_triangle.frag.spv.inl",
+        "hello_triangle.vert.spv.inl",
+        "shaders.hpp",
+    ],
+)

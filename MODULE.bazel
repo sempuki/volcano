@@ -1,8 +1,19 @@
-###############################################################################
-# Bazel now uses Bzlmod by default to manage external dependencies.
-# Please consider migrating your external dependencies from WORKSPACE to MODULE.bazel.
-#
-# For more details, please check https://github.com/bazelbuild/bazel/issues/18958
-###############################################################################
-bazel_dep(name = "rules_cc", version = "0.1.2")
-bazel_dep(name = "catch2", version = "3.8.1")
+# Copyright 2024 -- CONTRIBUTORS. See LICENSE.
+
+module(
+    name = "volcano",
+    bazel_compatibility = [">=9.0.0"],
+)
+
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_cc", version = "0.2.25")
+bazel_dep(name = "catch2", version = "3.15.1")
+bazel_dep(name = "glfw", version = "3.4.0.bcr.3")
+bazel_dep(name = "vulkan_headers", version = "1.4.349")
+
+# Shared core libraries, vendored as a git submodule.
+bazel_dep(name = "lib")
+local_path_override(
+    module_name = "lib",
+    path = "third_party/lib",
+)

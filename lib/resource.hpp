@@ -808,8 +808,8 @@ class Swapchain final {
                              VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
                              VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
                              VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR},
-                            static_cast<::VkCompositeAlphaFlagBitsKHR>(-1));
-    CHECK_INVARIANT(composite_alpha != -1);
+                            VK_COMPOSITE_ALPHA_FLAG_BITS_MAX_ENUM_KHR);
+    CHECK_INVARIANT(composite_alpha != VK_COMPOSITE_ALPHA_FLAG_BITS_MAX_ENUM_KHR);
 
     swapchain_ = vk::Swapchain{
         device, ::VkSwapchainCreateInfoKHR{
@@ -945,8 +945,10 @@ class Device final {
     return ShaderModule{device_, shader_spirv_bin};
   }
 
-  Swapchain create_swapchain(                     //
-      ::VkExtent2D requested_geometry,            //
+  // TODO: requested_geometry is ignored; the extent comes from the surface's
+  // currentExtent, which is 0xFFFFFFFF ("caller decides") on Wayland.
+  Swapchain create_swapchain(                                      //
+      [[maybe_unused]] ::VkExtent2D requested_geometry,            //
       ::VkFormat requested_format,                //
       ::VkPresentModeKHR requested_present_mode,  //
       ::VkSwapchainKHR previous_swapchain = VK_NULL_HANDLE) {
@@ -1319,7 +1321,7 @@ class Instance final {
 
   static VKAPI_ATTR ::VkBool32 debug_messenger_callback(
       ::VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
-      ::VkDebugUtilsMessageTypeFlagsEXT message_type,
+      ::VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
       const ::VkDebugUtilsMessengerCallbackDataEXT* data, void*) {
     CHECK_PRECONDITION(
         data->sType ==
