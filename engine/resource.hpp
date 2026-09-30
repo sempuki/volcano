@@ -831,7 +831,8 @@ class Swapchain final {
                              VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
                              VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR},
                             VK_COMPOSITE_ALPHA_FLAG_BITS_MAX_ENUM_KHR);
-    CHECK_INVARIANT(composite_alpha != VK_COMPOSITE_ALPHA_FLAG_BITS_MAX_ENUM_KHR);
+    CHECK_INVARIANT(composite_alpha !=
+                    VK_COMPOSITE_ALPHA_FLAG_BITS_MAX_ENUM_KHR);
 
     swapchain_ = vk::Swapchain{
         device, ::VkSwapchainCreateInfoKHR{
@@ -880,8 +881,7 @@ class Swapchain final {
 // swapchain (0xFFFFFFFF, e.g. Wayland), the requested size clamped to what the
 // surface supports.
 inline ::VkExtent2D choose_swapchain_extent(
-    const ::VkSurfaceCapabilitiesKHR& capabilities,
-    ::VkExtent2D requested) {
+    const ::VkSurfaceCapabilitiesKHR& capabilities, ::VkExtent2D requested) {
   if (capabilities.currentExtent.width !=
       std::numeric_limits<std::uint32_t>::max()) {
     return capabilities.currentExtent;
@@ -1009,15 +1009,15 @@ class Device final {
                                  requested_present_mode) !=
                        surface_present_modes().end());
 
-    return Swapchain{device_,                 //
-                     queue_families_,         //
-                     surface_,                //
-                     surface_capabilities,    //
-                     *surface_format_iter,    //
-                     requested_present_mode,  //
-                     choose_swapchain_extent(surface_capabilities(),
-                                             requested_geometry),
-                     previous_swapchain};
+    return Swapchain{
+        device_,                 //
+        queue_families_,         //
+        surface_,                //
+        surface_capabilities,    //
+        *surface_format_iter,    //
+        requested_present_mode,  //
+        choose_swapchain_extent(surface_capabilities(), requested_geometry),
+        previous_swapchain};
   }
 
   std::vector<Framebuffer> create_framebuffers(
@@ -1180,10 +1180,9 @@ class Instance final {
           return 2;
       }
     };
-    std::stable_sort(selected_result.begin(), selected_result.end(),
-                     [&rank](const auto& a, const auto& b) {
-                       return rank(a) < rank(b);
-                     });
+    std::stable_sort(
+        selected_result.begin(), selected_result.end(),
+        [&rank](const auto& a, const auto& b) { return rank(a) < rank(b); });
     CHECK_POSTCONDITION(selected_result.front().phys_device != VK_NULL_HANDLE);
 
     ::VkPhysicalDevice selected_phys_device =

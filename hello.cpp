@@ -238,4 +238,3 @@ int main() {
 
   window->show();
 }
-

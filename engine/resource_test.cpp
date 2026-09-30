@@ -43,7 +43,8 @@ TEST_CASE("ChooseSwapchainExtent") {
 
   SECTION("ShouldBeCurrentExtentGivenDefinedCurrentExtent") {
     capabilities.currentExtent = {.width = 640, .height = 480};
-    auto extent = choose_swapchain_extent(capabilities, {.width = 1, .height = 1});
+    auto extent =
+        choose_swapchain_extent(capabilities, {.width = 1, .height = 1});
     REQUIRE(extent.width == 640u);
     REQUIRE(extent.height == 480u);
   }

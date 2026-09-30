@@ -746,7 +746,8 @@ using InstanceBase =                  //
         ::vkDestroyInstance>;
 
 namespace impl {
-inline void end_device_adapter(::VkPhysicalDevice /*physical*/, ::VkDevice device) {
+inline void end_device_adapter(::VkPhysicalDevice /*physical*/,
+                               ::VkDevice device) {
   // This runs from a destructor, so it must not throw. A lost device fails the
   // wait but must still be destroyed.
   [[maybe_unused]] ::VkResult result = ::vkDeviceWaitIdle(device);

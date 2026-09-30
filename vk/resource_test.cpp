@@ -432,7 +432,9 @@ TEMPLATE_TEST_CASE("HandleOwnership", "", FakeHandle, FakeParentedHandle) {
   };
 
   SECTION("ShouldCloseOnceGivenDestruction") {
-    { auto handle = make(&a); }
+    {
+      auto handle = make(&a);
+    }
     REQUIRE(closed_handles == std::vector<int*>{&a});
   }
 
