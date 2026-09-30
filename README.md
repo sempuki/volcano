@@ -23,3 +23,12 @@ bazel run //:hello
 ```
 
 Code targets C++26; flags come from `@lib//bazel:copts.bzl`.
+
+## Editor setup
+
+clangd needs a `compile_commands.json`. Generate it from the workspace root,
+and again after adding files, targets or dependencies:
+
+```sh
+python3 2nd_party/lib/bazel/compile_commands.py
+```
