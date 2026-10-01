@@ -21,7 +21,7 @@ inline const ::VkAllocationCallbacks* ALLOCATOR = nullptr;
 // checking and debugging purposes. This metadata is kept on the heap in
 // move-only form to avoid copies and maintain stable addresses.
 
-namespace impl {
+namespace internal {
 template <typename VkType>
 class BoxAdapterBase {
  public:
@@ -60,128 +60,128 @@ class TypeValueAdapterBase : public BoxAdapterBase<VkType> {
     this->address()->sType = TypeValue;  //
   }
 };
-}  // namespace impl
+}  // namespace internal
 
 //------------------------------------------------------------------------------
 
 class DebugUtilsMessengerCreateInfo final        //
-    : public impl::TypeValueAdapterBase<         //
+    : public internal::TypeValueAdapterBase<     //
           ::VkDebugUtilsMessengerCreateInfoEXT,  //
           VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT> {};
 
-class ApplicationInfo final               //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkApplicationInfo,            //
+class ApplicationInfo final                   //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkApplicationInfo,                //
           VK_STRUCTURE_TYPE_APPLICATION_INFO> {};
 
-class InstanceCreateInfo final            //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkInstanceCreateInfo,         //
+class InstanceCreateInfo final                //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkInstanceCreateInfo,             //
           VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO> {};
 
-class DeviceCreateInfo final              //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkDeviceCreateInfo,           //
+class DeviceCreateInfo final                  //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkDeviceCreateInfo,               //
           VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO> {};
 
-class DeviceQueueCreateInfo final         //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkDeviceQueueCreateInfo,      //
+class DeviceQueueCreateInfo final             //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkDeviceQueueCreateInfo,          //
           VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO> {};
 
-class SubmitInfo final                    //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkSubmitInfo,                 //
+class SubmitInfo final                        //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkSubmitInfo,                     //
           VK_STRUCTURE_TYPE_SUBMIT_INFO> {};
 
-class SemaphoreCreateInfo final           //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkSemaphoreCreateInfo,        //
+class SemaphoreCreateInfo final               //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkSemaphoreCreateInfo,            //
           VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO> {};
 
-class FenceCreateInfo final               //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkFenceCreateInfo,            //
+class FenceCreateInfo final                   //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkFenceCreateInfo,                //
           VK_STRUCTURE_TYPE_FENCE_CREATE_INFO> {};
 
-class BufferCreateInfo final              //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkBufferCreateInfo,           //
+class BufferCreateInfo final                  //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkBufferCreateInfo,               //
           VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO> {};
 
-class MemoryAllocateInfo final            //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkMemoryAllocateInfo,         //
+class MemoryAllocateInfo final                //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkMemoryAllocateInfo,             //
           VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO> {};
 
-class CommandBufferAllocateInfo final     //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkCommandBufferAllocateInfo,  //
+class CommandBufferAllocateInfo final         //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkCommandBufferAllocateInfo,      //
           VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO> {};
 
-class CommandBufferBeginInfo final        //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkCommandBufferBeginInfo,     //
+class CommandBufferBeginInfo final            //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkCommandBufferBeginInfo,         //
           VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO> {};
 
-class CommandPoolCreateInfo final         //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkCommandPoolCreateInfo,      //
+class CommandPoolCreateInfo final             //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkCommandPoolCreateInfo,          //
           VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO> {};
 
-class ImageViewCreateInfo final           //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkImageViewCreateInfo,        //
+class ImageViewCreateInfo final               //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkImageViewCreateInfo,            //
           VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO> {};
 
-class PipelineLayoutCreateInfo final      //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkPipelineLayoutCreateInfo,   //
+class PipelineLayoutCreateInfo final          //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkPipelineLayoutCreateInfo,       //
           VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO> {};
 
-class ShaderModuleCreateInfo final        //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkShaderModuleCreateInfo,     //
+class ShaderModuleCreateInfo final            //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkShaderModuleCreateInfo,         //
           VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO> {};
 
-class SwapchainCreateInfo final           //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkSwapchainCreateInfoKHR,     //
+class SwapchainCreateInfo final               //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkSwapchainCreateInfoKHR,         //
           VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR> {};
 
-class PresentInfo final                   //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkPresentInfoKHR,             //
+class PresentInfo final                       //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkPresentInfoKHR,                 //
           VK_STRUCTURE_TYPE_PRESENT_INFO_KHR> {};
 
-class FramebufferCreateInfo final         //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkFramebufferCreateInfo,      //
+class FramebufferCreateInfo final             //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkFramebufferCreateInfo,          //
           VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO> {};
 
-class GraphicsPipelineCreateInfo final     //
-    : public impl::TypeValueAdapterBase<   //
-          ::VkGraphicsPipelineCreateInfo,  //
+class GraphicsPipelineCreateInfo final        //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkGraphicsPipelineCreateInfo,     //
           VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO> {};
 
 class PipelineShaderStageCreateInfo final     //
-    : public impl::TypeValueAdapterBase<      //
+    : public internal::TypeValueAdapterBase<  //
           ::VkPipelineShaderStageCreateInfo,  //
           VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO> {};
 
-class RenderPassCreateInfo final          //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkRenderPassCreateInfo,       //
+class RenderPassCreateInfo final              //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkRenderPassCreateInfo,           //
           VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO> {};
 
-class RenderPassBeginInfo final           //
-    : public impl::TypeValueAdapterBase<  //
-          ::VkRenderPassBeginInfo,        //
+class RenderPassBeginInfo final               //
+    : public internal::TypeValueAdapterBase<  //
+          ::VkRenderPassBeginInfo,            //
           VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO> {};
 
 //------------------------------------------------------------------------------
 
-namespace impl {
+namespace internal {
 template <typename PropertyType>
 class QueriedPropertyBase {
  public:
@@ -263,37 +263,37 @@ class PropertyQuerier2Base : public QueriedPropertyBase<PropertyType> {
   Parameter1Type param1_;
   Parameter2Type param2_;
 };
-}  // namespace impl
+}  // namespace internal
 
 //------------------------------------------------------------------------------
 
-using MemoryRequirementsBase =   //
-    impl::PropertyQuerier2Base<  //
-        ::VkDevice,              //
-        ::VkBuffer,              //
-        ::VkMemoryRequirements,  //
+using MemoryRequirementsBase =       //
+    internal::PropertyQuerier2Base<  //
+        ::VkDevice,                  //
+        ::VkBuffer,                  //
+        ::VkMemoryRequirements,      //
         ::vkGetBufferMemoryRequirements>;
 
 using PhysicalDevicePropertiesBase =   //
-    impl::PropertyQuerier1Base<        //
+    internal::PropertyQuerier1Base<    //
         ::VkPhysicalDevice,            //
         ::VkPhysicalDeviceProperties,  //
         ::vkGetPhysicalDeviceProperties>;
 
 using PhysicalDeviceMemoryPropertiesBase =   //
-    impl::PropertyQuerier1Base<              //
+    internal::PropertyQuerier1Base<          //
         ::VkPhysicalDevice,                  //
         ::VkPhysicalDeviceMemoryProperties,  //
         ::vkGetPhysicalDeviceMemoryProperties>;
 
 using PhysicalDeviceFeaturesBase =   //
-    impl::PropertyQuerier1Base<      //
+    internal::PropertyQuerier1Base<  //
         ::VkPhysicalDevice,          //
         ::VkPhysicalDeviceFeatures,  //
         ::vkGetPhysicalDeviceFeatures>;
 
 using PhysicalDeviceSurfaceCapabilitiesBase =  //
-    impl::PropertyQuerier2Base<                //
+    internal::PropertyQuerier2Base<            //
         ::VkPhysicalDevice,                    //
         ::VkSurfaceKHR,                        //
         ::VkSurfaceCapabilitiesKHR,            //
@@ -318,7 +318,7 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceSurfaceCapabilities,  //
 
 //------------------------------------------------------------------------------
 
-namespace impl {
+namespace internal {
 template <typename EnumeratorType, typename PropertyType>
 inline void maybe_enumerate_properties(
     EnumeratorType&& enumerate, InOut<std::vector<PropertyType>> properties) {
@@ -442,61 +442,61 @@ class PropertyEnumerator2Base : public EnumeratedPropertyBase<PropertyType> {
   Parameter1Type param1_;
   Parameter2Type param2_;
 };
-}  // namespace impl
+}  // namespace internal
 
 //------------------------------------------------------------------------------
 
 using LayerName = const char*;
 
-using InstanceLayerPropertiesBase =  //
-    impl::PropertyEnumerator0Base<   //
-        ::VkLayerProperties,         //
+using InstanceLayerPropertiesBase =     //
+    internal::PropertyEnumerator0Base<  //
+        ::VkLayerProperties,            //
         ::vkEnumerateInstanceLayerProperties>;
 
 using InstanceExtensionPropertiesBase =  //
-    impl::PropertyEnumerator1Base<       //
+    internal::PropertyEnumerator1Base<   //
         LayerName,                       //
         ::VkExtensionProperties,         //
         ::vkEnumerateInstanceExtensionProperties>;
 
-using PhysicalDevicesBase =         //
-    impl::PropertyEnumerator1Base<  //
-        ::VkInstance,               //
-        ::VkPhysicalDevice,         //
+using PhysicalDevicesBase =             //
+    internal::PropertyEnumerator1Base<  //
+        ::VkInstance,                   //
+        ::VkPhysicalDevice,             //
         ::vkEnumeratePhysicalDevices>;
 
-using DeviceExtensionPropertiesBase =  //
-    impl::PropertyEnumerator2Base<     //
-        ::VkPhysicalDevice,            //
-        LayerName,                     //
-        ::VkExtensionProperties,       //
+using DeviceExtensionPropertiesBase =   //
+    internal::PropertyEnumerator2Base<  //
+        ::VkPhysicalDevice,             //
+        LayerName,                      //
+        ::VkExtensionProperties,        //
         ::vkEnumerateDeviceExtensionProperties>;
 
 using PhysicalDeviceQueueFamilyPropertiesBase =  //
-    impl::PropertyEnumerator1Base<               //
+    internal::PropertyEnumerator1Base<           //
         ::VkPhysicalDevice,                      //
         ::VkQueueFamilyProperties,               //
         ::vkGetPhysicalDeviceQueueFamilyProperties>;
 
 using PhysicalDeviceSurfaceFormatsBase =  //
-    impl::PropertyEnumerator2Base<        //
+    internal::PropertyEnumerator2Base<    //
         ::VkPhysicalDevice,               //
         ::VkSurfaceKHR,                   //
         ::VkSurfaceFormatKHR,             //
         ::vkGetPhysicalDeviceSurfaceFormatsKHR>;
 
 using PhysicalDeviceSurfacePresentModesBase =  //
-    impl::PropertyEnumerator2Base<             //
+    internal::PropertyEnumerator2Base<         //
         ::VkPhysicalDevice,                    //
         ::VkSurfaceKHR,                        //
         ::VkPresentModeKHR,                    //
         ::vkGetPhysicalDeviceSurfacePresentModesKHR>;
 
-using SwapchainImagesBase =         //
-    impl::PropertyEnumerator2Base<  //
-        ::VkDevice,                 //
-        ::VkSwapchainKHR,           //
-        ::VkImage,                  //
+using SwapchainImagesBase =             //
+    internal::PropertyEnumerator2Base<  //
+        ::VkDevice,                     //
+        ::VkSwapchainKHR,               //
+        ::VkImage,                      //
         ::vkGetSwapchainImagesKHR>;
 
 //------------------------------------------------------------------------------
@@ -525,7 +525,7 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(SwapchainImages,  //
                                SwapchainImagesBase);
 
 //------------------------------------------------------------------------------
-namespace impl {
+namespace internal {
 template <typename HandleType, typename HandleOpenInfoType, auto OpenHandle>
 inline ::VkResult open_handle_default_adapter(const HandleOpenInfoType& info,
                                               HandleType& handle) {
@@ -733,19 +733,19 @@ using DefaultParentedHandleResourceBase =       //
             HandleType,                         //
             CloseHandle>>;
 
-}  // namespace impl
+}  // namespace internal
 
 //------------------------------------------------------------------------------
 
-using InstanceBase =                  //
-    impl::DefaultHandleResourceBase<  //
-        ::VkInstance,                 //
-        ::VkInstanceCreateInfo,       //
-        InstanceCreateInfo,           //
-        ::vkCreateInstance,           //
+using InstanceBase =                      //
+    internal::DefaultHandleResourceBase<  //
+        ::VkInstance,                     //
+        ::VkInstanceCreateInfo,           //
+        InstanceCreateInfo,               //
+        ::vkCreateInstance,               //
         ::vkDestroyInstance>;
 
-namespace impl {
+namespace internal {
 inline void end_device_adapter(::VkPhysicalDevice /*physical*/,
                                ::VkDevice device) {
   // This runs from a destructor, so it must not throw. A lost device fails the
@@ -753,55 +753,55 @@ inline void end_device_adapter(::VkPhysicalDevice /*physical*/,
   [[maybe_unused]] ::VkResult result = ::vkDeviceWaitIdle(device);
   ::vkDestroyDevice(device, ALLOCATOR);
 }
-}  // namespace impl
+}  // namespace internal
 
-using DeviceBase =                                   //
-    impl::ParentedHandleBase<                        //
-        ::VkPhysicalDevice,                          //
-        ::VkDevice,                                  //
-        ::VkDeviceCreateInfo,                        //
-        DeviceCreateInfo,                            //
-        impl::open_parented_handle_default_adapter<  //
-            ::VkPhysicalDevice,                      //
-            ::VkDevice,                              //
-            ::VkDeviceCreateInfo,                    //
-            ::vkCreateDevice>,                       //
-        impl::end_device_adapter>;
+using DeviceBase =                                       //
+    internal::ParentedHandleBase<                        //
+        ::VkPhysicalDevice,                              //
+        ::VkDevice,                                      //
+        ::VkDeviceCreateInfo,                            //
+        DeviceCreateInfo,                                //
+        internal::open_parented_handle_default_adapter<  //
+            ::VkPhysicalDevice,                          //
+            ::VkDevice,                                  //
+            ::VkDeviceCreateInfo,                        //
+            ::vkCreateDevice>,                           //
+        internal::end_device_adapter>;
 
-using SemaphoreBase =                         //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkSemaphore,                        //
-        ::VkSemaphoreCreateInfo,              //
-        SemaphoreCreateInfo,                  //
-        ::vkCreateSemaphore,                  //
+using SemaphoreBase =                             //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkSemaphore,                            //
+        ::VkSemaphoreCreateInfo,                  //
+        SemaphoreCreateInfo,                      //
+        ::vkCreateSemaphore,                      //
         ::vkDestroySemaphore>;
 
-using FenceBase =                             //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkFence,                            //
-        ::VkFenceCreateInfo,                  //
-        FenceCreateInfo,                      //
-        ::vkCreateFence,                      //
+using FenceBase =                                 //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkFence,                                //
+        ::VkFenceCreateInfo,                      //
+        FenceCreateInfo,                          //
+        ::vkCreateFence,                          //
         ::vkDestroyFence>;
 
-using BufferBase =                            //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkBuffer,                           //
-        ::VkBufferCreateInfo,                 //
-        BufferCreateInfo,                     //
-        ::vkCreateBuffer,                     //
+using BufferBase =                                //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkBuffer,                               //
+        ::VkBufferCreateInfo,                     //
+        BufferCreateInfo,                         //
+        ::vkCreateBuffer,                         //
         ::vkDestroyBuffer>;
 
-using DeviceMemoryBase =                      //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkDeviceMemory,                     //
-        ::VkMemoryAllocateInfo,               //
-        MemoryAllocateInfo,                   //
-        ::vkAllocateMemory,                   //
+using DeviceMemoryBase =                          //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkDeviceMemory,                         //
+        ::VkMemoryAllocateInfo,                   //
+        MemoryAllocateInfo,                       //
+        ::vkAllocateMemory,                       //
         ::vkFreeMemory>;
 
 struct QueueIndex final {
@@ -815,7 +815,7 @@ struct QueueIndex final {
   const QueueIndex* address() const noexcept { return this; }
 };
 
-namespace impl {
+namespace internal {
 inline ::VkResult begin_device_queue_adapter(  //
     ::VkDevice device,                         //
     QueueIndex queue,                          //
@@ -825,18 +825,18 @@ inline ::VkResult begin_device_queue_adapter(  //
   return VK_SUCCESS;
 }
 inline void end_device_queue_adapter(::VkDevice, ::VkQueue) {}
-}  // namespace impl
+}  // namespace internal
 
-using QueueBase =                          //
-    impl::ParentedHandleBase<              //
-        ::VkDevice,                        //
-        ::VkQueue,                         //
-        QueueIndex,                        //
-        QueueIndex,                        //
-        impl::begin_device_queue_adapter,  //
-        impl::end_device_queue_adapter>;
+using QueueBase =                              //
+    internal::ParentedHandleBase<              //
+        ::VkDevice,                            //
+        ::VkQueue,                             //
+        QueueIndex,                            //
+        QueueIndex,                            //
+        internal::begin_device_queue_adapter,  //
+        internal::end_device_queue_adapter>;
 
-namespace impl {
+namespace internal {
 inline ::VkResult begin_command_buffer_adapter(  //
     const ::VkCommandBufferBeginInfo& info,      //
     ::VkCommandBuffer handle) {
@@ -845,99 +845,99 @@ inline ::VkResult begin_command_buffer_adapter(  //
 inline void end_command_buffer_adapter(::VkCommandBuffer handle) {
   ::vkEndCommandBuffer(handle);
 }
-}  // namespace impl
+}  // namespace internal
 
-using CommandPoolBase =                       //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkCommandPool,                      //
-        ::VkCommandPoolCreateInfo,            //
-        CommandPoolCreateInfo,                //
-        ::vkCreateCommandPool,                //
+using CommandPoolBase =                           //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkCommandPool,                          //
+        ::VkCommandPoolCreateInfo,                //
+        CommandPoolCreateInfo,                    //
+        ::vkCreateCommandPool,                    //
         ::vkDestroyCommandPool>;
 
-using CommandBufferBuilderBase =             //
-    impl::HandleBase<                        //
-        ::VkCommandBuffer,                   //
-        ::VkCommandBufferBeginInfo,          //
-        CommandBufferBeginInfo,              //
-        impl::begin_command_buffer_adapter,  //
-        impl::end_command_buffer_adapter>;
+using CommandBufferBuilderBase =                 //
+    internal::HandleBase<                        //
+        ::VkCommandBuffer,                       //
+        ::VkCommandBufferBeginInfo,              //
+        CommandBufferBeginInfo,                  //
+        internal::begin_command_buffer_adapter,  //
+        internal::end_command_buffer_adapter>;
 
-using ImageViewBase =                         //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkImageView,                        //
-        ::VkImageViewCreateInfo,              //
-        ImageViewCreateInfo,                  //
-        ::vkCreateImageView,                  //
+using ImageViewBase =                             //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkImageView,                            //
+        ::VkImageViewCreateInfo,                  //
+        ImageViewCreateInfo,                      //
+        ::vkCreateImageView,                      //
         ::vkDestroyImageView>;
 
-using RenderPassBase =                        //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkRenderPass,                       //
-        ::VkRenderPassCreateInfo,             //
-        RenderPassCreateInfo,                 //
-        ::vkCreateRenderPass,                 //
+using RenderPassBase =                            //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkRenderPass,                           //
+        ::VkRenderPassCreateInfo,                 //
+        RenderPassCreateInfo,                     //
+        ::vkCreateRenderPass,                     //
         ::vkDestroyRenderPass>;
 
-using PipelineLayoutBase =                    //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkPipelineLayout,                   //
-        ::VkPipelineLayoutCreateInfo,         //
-        PipelineLayoutCreateInfo,             //
-        ::vkCreatePipelineLayout,             //
+using PipelineLayoutBase =                        //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkPipelineLayout,                       //
+        ::VkPipelineLayoutCreateInfo,             //
+        PipelineLayoutCreateInfo,                 //
+        ::vkCreatePipelineLayout,                 //
         ::vkDestroyPipelineLayout>;
 
-using ShaderModuleBase =                      //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkShaderModule,                     //
-        ::VkShaderModuleCreateInfo,           //
-        ShaderModuleCreateInfo,               //
-        ::vkCreateShaderModule,               //
+using ShaderModuleBase =                          //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkShaderModule,                         //
+        ::VkShaderModuleCreateInfo,               //
+        ShaderModuleCreateInfo,                   //
+        ::vkCreateShaderModule,                   //
         ::vkDestroyShaderModule>;
 
-using SwapchainBase =                         //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkSwapchainKHR,                     //
-        ::VkSwapchainCreateInfoKHR,           //
-        SwapchainCreateInfo,                  //
-        ::vkCreateSwapchainKHR,               //
+using SwapchainBase =                             //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkSwapchainKHR,                         //
+        ::VkSwapchainCreateInfoKHR,               //
+        SwapchainCreateInfo,                      //
+        ::vkCreateSwapchainKHR,                   //
         ::vkDestroySwapchainKHR>;
 
-namespace impl {
+namespace internal {
 inline ::VkResult begin_surface_adapter(::VkInstance, Empty, ::VkSurfaceKHR) {
   CHECK_UNREACHABLE();
   return VK_SUCCESS;
 }
-}  // namespace impl
+}  // namespace internal
 
-using SurfaceBase =                                   //
-    impl::ParentedHandleBase<                         //
-        ::VkInstance,                                 //
-        ::VkSurfaceKHR,                               //
-        Empty,                                        //
-        Empty,                                        //
-        impl::begin_surface_adapter,                  //
-        impl::close_parented_handle_default_adapter<  //
-            ::VkInstance,                             //
-            ::VkSurfaceKHR,                           //
+using SurfaceBase =                                       //
+    internal::ParentedHandleBase<                         //
+        ::VkInstance,                                     //
+        ::VkSurfaceKHR,                                   //
+        Empty,                                            //
+        Empty,                                            //
+        internal::begin_surface_adapter,                  //
+        internal::close_parented_handle_default_adapter<  //
+            ::VkInstance,                                 //
+            ::VkSurfaceKHR,                               //
             ::vkDestroySurfaceKHR>>;
 
-using FramebufferBase =                       //
-    impl::DefaultParentedHandleResourceBase<  //
-        ::VkDevice,                           //
-        ::VkFramebuffer,                      //
-        ::VkFramebufferCreateInfo,            //
-        FramebufferCreateInfo,                //
-        ::vkCreateFramebuffer,                //
+using FramebufferBase =                           //
+    internal::DefaultParentedHandleResourceBase<  //
+        ::VkDevice,                               //
+        ::VkFramebuffer,                          //
+        ::VkFramebufferCreateInfo,                //
+        FramebufferCreateInfo,                    //
+        ::vkCreateFramebuffer,                    //
         ::vkDestroyFramebuffer>;
 
-namespace impl {
+namespace internal {
 inline ::VkResult create_graphics_pipeline_adapter(
     ::VkDevice device,                           //
     const ::VkGraphicsPipelineCreateInfo& info,  //
@@ -946,18 +946,18 @@ inline ::VkResult create_graphics_pipeline_adapter(
                                      std::addressof(info), ALLOCATOR,
                                      std::addressof(handle));
 }
-}  // namespace impl
+}  // namespace internal
 
-using GraphicsPipelineBase =                          //
-    impl::ParentedHandleBase<                         //
-        ::VkDevice,                                   //
-        ::VkPipeline,                                 //
-        ::VkGraphicsPipelineCreateInfo,               //
-        GraphicsPipelineCreateInfo,                   //
-        impl::create_graphics_pipeline_adapter,       //
-        impl::close_parented_handle_default_adapter<  //
-            ::VkDevice,                               //
-            ::VkPipeline,                             //
+using GraphicsPipelineBase =                              //
+    internal::ParentedHandleBase<                         //
+        ::VkDevice,                                       //
+        ::VkPipeline,                                     //
+        ::VkGraphicsPipelineCreateInfo,                   //
+        GraphicsPipelineCreateInfo,                       //
+        internal::create_graphics_pipeline_adapter,       //
+        internal::close_parented_handle_default_adapter<  //
+            ::VkDevice,                                   //
+            ::VkPipeline,                                 //
             ::vkDestroyPipeline>>;
 
 //------------------------------------------------------------------------------
@@ -982,7 +982,7 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(GraphicsPipeline, GraphicsPipelineBase);
 
 //------------------------------------------------------------------------------
 
-namespace impl {
+namespace internal {
 inline ::VkResult begin_render_pass_command_adapter(
     const ::VkRenderPassBeginInfo& info, ::VkCommandBuffer handle) {
   ::vkCmdBeginRenderPass(handle, std::addressof(info),
@@ -992,15 +992,15 @@ inline ::VkResult begin_render_pass_command_adapter(
 inline void end_render_pass_command_adapter(::VkCommandBuffer handle) {
   ::vkCmdEndRenderPass(handle);
 }
-}  // namespace impl
+}  // namespace internal
 
-using RenderPassCommandBuilderBase =              //
-    impl::HandleBase<                             //
-        CommandBufferBuilder,                     //
-        ::VkRenderPassBeginInfo,                  //
-        RenderPassBeginInfo,                      //
-        impl::begin_render_pass_command_adapter,  //
-        impl::end_render_pass_command_adapter>;
+using RenderPassCommandBuilderBase =                  //
+    internal::HandleBase<                             //
+        CommandBufferBuilder,                         //
+        ::VkRenderPassBeginInfo,                      //
+        RenderPassBeginInfo,                          //
+        internal::begin_render_pass_command_adapter,  //
+        internal::end_render_pass_command_adapter>;
 
 class RenderPassCommandBuilder final : public RenderPassCommandBuilderBase {
   using BaseType = RenderPassCommandBuilderBase;

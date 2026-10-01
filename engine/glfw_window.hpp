@@ -16,7 +16,7 @@ namespace volcano::glfw {
 
 class PlatformWindow;
 
-namespace impl {
+namespace internal {
 
 class StaticState final {
  public:
@@ -98,7 +98,7 @@ class StaticInitialization final {
   }
 };
 
-}  // namespace impl
+}  // namespace internal
 
 class PlatformWindow final : public Window {
   using BaseType = Window;
@@ -110,14 +110,15 @@ class PlatformWindow final : public Window {
   PlatformWindow() = delete;
   ~PlatformWindow() {
     if (glfw_window_) {
-      impl::StaticState::instance().unlink(glfw_window_);
+      internal::StaticState::instance().unlink(glfw_window_);
       ::glfwDestroyWindow(glfw_window_);
     }
   }
 
   explicit PlatformWindow(std::string_view title, Window::Geometry geometry)
       : BaseType{title, geometry} {
-    CHECK_PRECONDITION(impl::StaticInitialization::instance().is_initialized());
+    CHECK_PRECONDITION(
+        internal::StaticInitialization::instance().is_initialized());
 
     ::glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     ::glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
@@ -127,7 +128,7 @@ class PlatformWindow final : public Window {
                                       title_.c_str(), nullptr, nullptr);
     CHECK_POSTCONDITION(glfw_window_);
 
-    bool inserted = impl::StaticState::instance().link(glfw_window_, this);
+    bool inserted = internal::StaticState::instance().link(glfw_window_, this);
     CHECK_INVARIANT(inserted);
 
     ::glfwSetInputMode(glfw_window_, GLFW_STICKY_KEYS, GLFW_TRUE);
@@ -169,7 +170,7 @@ class PlatformWindow final : public Window {
            .height = static_cast<std::uint32_t>(std::max(height, 0))});
     }
 
-    while (!impl::StaticState::instance().has_pending_errors() &&
+    while (!internal::StaticState::instance().has_pending_errors() &&
            !::glfwWindowShouldClose(glfw_window_)) {
       if (renderer().HasSwapchain()) {
         ::glfwPollEvents();  // Non-blocking.
@@ -182,7 +183,7 @@ class PlatformWindow final : public Window {
       }
     }
 
-    impl::StaticState::instance().dump_pending_errors();
+    internal::StaticState::instance().dump_pending_errors();
   }
 
  private:
@@ -192,7 +193,7 @@ class PlatformWindow final : public Window {
       ::GLFWwindow* window,                //
       int width, int height) {
     PlatformWindow* platform_window =
-        impl::StaticState::instance().find(window);
+        internal::StaticState::instance().find(window);
     CHECK_INVARIANT(platform_window);
 
     // Minimizing reports 0x0, which leaves the renderer without a swapchain
@@ -205,7 +206,7 @@ class PlatformWindow final : public Window {
   static void window_refresh_callback(  //
       ::GLFWwindow* window) {
     PlatformWindow* platform_window =
-        impl::StaticState::instance().find(window);
+        internal::StaticState::instance().find(window);
 
     CHECK_INVARIANT(platform_window);
     platform_window->renderer().Render();

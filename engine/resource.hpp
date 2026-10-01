@@ -16,12 +16,12 @@
 #include "vk/resource.hpp"
 
 namespace volcano {
-namespace impl {
+namespace internal {
 constexpr const char* VALIDATION_LAYER_NAME = "VK_LAYER_KHRONOS_validation";
 constexpr const char* SWAPCHAIN_EXTENSION_NAME =
     VK_KHR_SWAPCHAIN_EXTENSION_NAME;
 constexpr const char* DEBUG_EXTENSION_NAME = VK_EXT_DEBUG_UTILS_EXTENSION_NAME;
-}  // namespace impl
+}  // namespace internal
 
 enum class DebugLevel {
   NONE,
@@ -1195,7 +1195,7 @@ class Instance final {
                   selected_phys_device,
                   phys_device_features_[selected_phys_device],
                   phys_device_memory_properties_[selected_phys_device],
-                  {impl::SWAPCHAIN_EXTENSION_NAME},
+                  {internal::SWAPCHAIN_EXTENSION_NAME},
                   {selected_queue_family_index}};
   }
 
@@ -1228,9 +1228,9 @@ class Instance final {
         .ppEnabledExtensionNames = instance_extensions_.data(),
     };
 
-    const bool use_debug =
-        debug_level != DebugLevel::NONE &&
-        vk::has_string_name(instance_extensions_, impl::DEBUG_EXTENSION_NAME);
+    const bool use_debug = debug_level != DebugLevel::NONE &&
+                           vk::has_string_name(instance_extensions_,
+                                               internal::DEBUG_EXTENSION_NAME);
 
     if (use_debug) {
       create_info.pNext = debug_create_info_.address();
@@ -1284,7 +1284,7 @@ class Instance final {
 
       CHECK_INVARIANT(vk::has_extension_property(
           supported_device_extension_properties_[phys_device],
-          impl::SWAPCHAIN_EXTENSION_NAME));
+          internal::SWAPCHAIN_EXTENSION_NAME));
     }
   }
 
@@ -1436,17 +1436,18 @@ class Application final {
                                         requested_extensions.end()};
 
     if (vk::has_layer_property(supported_layers_,
-                               impl::VALIDATION_LAYER_NAME)) {
-      layers.push_back(impl::VALIDATION_LAYER_NAME);
+                               internal::VALIDATION_LAYER_NAME)) {
+      layers.push_back(internal::VALIDATION_LAYER_NAME);
     }
 
     if (debug_level != DebugLevel::NONE) {
       if (vk::has_extension_property(
-              supported_extensions_[impl::VALIDATION_LAYER_NAME],
-              impl::DEBUG_EXTENSION_NAME)) {
-        extensions.push_back(impl::DEBUG_EXTENSION_NAME);
+              supported_extensions_[internal::VALIDATION_LAYER_NAME],
+              internal::DEBUG_EXTENSION_NAME)) {
+        extensions.push_back(internal::DEBUG_EXTENSION_NAME);
       } else {
-        std::cerr << "Missing debug extension: " << impl::DEBUG_EXTENSION_NAME;
+        std::cerr << "Missing debug extension: "
+                  << internal::DEBUG_EXTENSION_NAME;
       }
     }
 

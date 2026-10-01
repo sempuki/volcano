@@ -6,7 +6,7 @@ namespace volcano::glfw {
 
 // StaticState only maps pointers, so it needs neither glfwInit nor a display.
 TEST_CASE("StaticState") {
-  auto& state = impl::StaticState::instance();
+  auto& state = internal::StaticState::instance();
   auto* glfw_window = reinterpret_cast<::GLFWwindow*>(0x1000);
   auto* first = reinterpret_cast<PlatformWindow*>(0x2000);
   auto* second = reinterpret_cast<PlatformWindow*>(0x3000);

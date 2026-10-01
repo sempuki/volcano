@@ -412,10 +412,10 @@ void fake_close_parented(int* const& /*parent*/, int* const& handle) {
 }
 
 using FakeHandle =
-    impl::HandleBase<int*, int, FakeInfoHolder, fake_open, fake_close>;
+    internal::HandleBase<int*, int, FakeInfoHolder, fake_open, fake_close>;
 using FakeParentedHandle =
-    impl::ParentedHandleBase<int*, int*, int, FakeInfoHolder,
-                             fake_open_parented, fake_close_parented>;
+    internal::ParentedHandleBase<int*, int*, int, FakeInfoHolder,
+                                 fake_open_parented, fake_close_parented>;
 
 }  // namespace
 
@@ -476,7 +476,7 @@ TEST_CASE("MaybeEnumerateProperties") {
       return VK_SUCCESS;
     };
 
-    impl::maybe_enumerate_properties(enumerate, InOut(properties));
+    internal::maybe_enumerate_properties(enumerate, InOut(properties));
 
     REQUIRE(properties == std::vector<int>{10, 20});
   }
@@ -498,7 +498,7 @@ TEST_CASE("MaybeEnumerateProperties") {
       return VK_SUCCESS;
     };
 
-    impl::maybe_enumerate_properties(enumerate, InOut(properties));
+    internal::maybe_enumerate_properties(enumerate, InOut(properties));
 
     REQUIRE(properties == std::vector<int>{1, 2});
   }
@@ -511,7 +511,7 @@ TEST_CASE("MaybeEnumerateProperties") {
       *count = 1;
     };
 
-    impl::maybe_enumerate_properties(enumerate, InOut(properties));
+    internal::maybe_enumerate_properties(enumerate, InOut(properties));
 
     REQUIRE(properties == std::vector<int>{7});
   }
