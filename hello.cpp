@@ -4,6 +4,7 @@
 #include "engine/surface_render.hpp"
 #include "shaders/shaders.hpp"
 
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <vector>
@@ -11,11 +12,11 @@
 using namespace volcano;
 
 struct Vertex2D {
-  float position[2];
+  std::array<float, 2> position;
 };
 
 struct ColorF {
-  float color[3];
+  std::array<float, 3> color;
 };
 
 struct Vertex2D_ColorF_pack {
