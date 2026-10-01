@@ -395,19 +395,21 @@ std::vector<int*> closed_handles;
 
 struct FakeInfoHolder {
   int value = 0;
-  const int& operator()() const { return value; }
+  auto operator()() const -> const int& { return value; }
 };
 
-::VkResult fake_open(const int& /*info*/, int*& /*handle*/) {
+auto fake_open(const int& /*info*/, int*& /*handle*/) -> ::VkResult {
   return VK_SUCCESS;
 }
-void fake_close(int* const& handle) { closed_handles.push_back(handle); }
+auto fake_close(int* const& handle) -> void {
+  closed_handles.push_back(handle);
+}
 
-::VkResult fake_open_parented(int* /*parent*/, const int& /*info*/,
-                              int*& /*handle*/) {
+auto fake_open_parented(int* /*parent*/, const int& /*info*/, int*& /*handle*/)
+    -> ::VkResult {
   return VK_SUCCESS;
 }
-void fake_close_parented(int* const& /*parent*/, int* const& handle) {
+auto fake_close_parented(int* const& /*parent*/, int* const& handle) -> void {
   closed_handles.push_back(handle);
 }
 

@@ -31,9 +31,9 @@ class SurfaceRenderer final : public Renderer {
     CHECK_POSTCONDITION(recreate_swapchain_);
   }
 
-  bool HasSwapchain() const override { return has_swapchain_; }
+  auto HasSwapchain() const -> bool override { return has_swapchain_; }
 
-  void RecreateSwapchain(::VkExtent2D geometry) override {
+  auto RecreateSwapchain(::VkExtent2D geometry) -> void override {
     vk::PhysicalDeviceSurfaceCapabilities surface_capabilities{phys_device_,
                                                                surface_};
 
@@ -58,7 +58,7 @@ class SurfaceRenderer final : public Renderer {
     has_swapchain_ = recreate_swapchain_(geometry);
   }
 
-  void Render() override {
+  auto Render() -> void override {
     if (has_swapchain_) {
       CHECK_INVARIANT(render_);
       render_();

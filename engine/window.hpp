@@ -23,18 +23,18 @@ class Window {
   explicit Window(std::string_view title, Geometry geometry)
       : title_{title}, geometry_{geometry} {}
 
-  void set_renderer(std::unique_ptr<Renderer> renderer) {
+  auto set_renderer(std::unique_ptr<Renderer> renderer) -> void {
     renderer_ = std::move(renderer);
   }
 
-  const Geometry& geometry() const { return geometry_; }
+  auto geometry() const -> const Geometry& { return geometry_; }
 
-  virtual std::span<const char*> required_extensions() const = 0;
-  virtual ::VkSurfaceKHR create_surface(::VkInstance instance) = 0;
-  virtual void show() = 0;
+  virtual auto required_extensions() const -> std::span<const char*> = 0;
+  virtual auto create_surface(::VkInstance instance) -> ::VkSurfaceKHR = 0;
+  virtual auto show() -> void = 0;
 
  protected:
-  Renderer& renderer() {
+  auto renderer() -> Renderer& {
     CHECK_PRECONDITION(renderer_);
     return *renderer_;
   }

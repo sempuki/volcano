@@ -37,11 +37,11 @@ class BoxAdapterBase {
   operator VkType&() { return *vk_object_; };
   operator const VkType&() { return *vk_object_; };
 
-  VkType& operator()() noexcept { return *vk_object_; };
-  const VkType& operator()() const noexcept { return *vk_object_; };
+  auto operator()() noexcept -> VkType& { return *vk_object_; };
+  auto operator()() const noexcept -> const VkType& { return *vk_object_; };
 
-  VkType* address() noexcept { return vk_object_.get(); }
-  const VkType* address() const noexcept { return vk_object_.get(); }
+  auto address() noexcept -> VkType* { return vk_object_.get(); }
+  auto address() const noexcept -> const VkType* { return vk_object_.get(); }
 
  private:
   std::unique_ptr<VkType> vk_object_ = std::make_unique<VkType>();
@@ -197,11 +197,13 @@ class QueriedPropertyBase {
   operator PropertyType&() { return property_; }
   operator const PropertyType&() const { return property_; }
 
-  PropertyType& operator()() { return property_; }
-  const PropertyType& operator()() const { return property_; }
+  auto operator()() -> PropertyType& { return property_; }
+  auto operator()() const -> const PropertyType& { return property_; }
 
-  PropertyType* address() { return std::addressof(property_); }
-  const PropertyType* address() const { return std::addressof(property_); }
+  auto address() -> PropertyType* { return std::addressof(property_); }
+  auto address() const -> const PropertyType* {
+    return std::addressof(property_);
+  }
 
  protected:
   PropertyType property_;
@@ -320,8 +322,9 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(PhysicalDeviceSurfaceCapabilities,  //
 
 namespace internal {
 template <typename EnumeratorType, typename PropertyType>
-inline void maybe_enumerate_properties(
-    EnumeratorType&& enumerate, InOut<std::vector<PropertyType>> properties) {
+inline auto maybe_enumerate_properties(
+    EnumeratorType&& enumerate, InOut<std::vector<PropertyType>> properties)
+    -> void {
   std::vector<PropertyType> current;
 
   // The count can change between the two calls. Retry on VK_INCOMPLETE, and
@@ -373,8 +376,10 @@ class EnumeratedPropertyBase {
   operator std::span<PropertyType>() { return {properties_}; }
   operator std::span<const PropertyType>() const { return {properties_}; }
 
-  std::span<PropertyType> operator()() { return {properties_}; }
-  std::span<const PropertyType> operator()() const { return {properties_}; }
+  auto operator()() -> std::span<PropertyType> { return {properties_}; }
+  auto operator()() const -> std::span<const PropertyType> {
+    return {properties_};
+  }
 
  protected:
   std::vector<PropertyType> properties_;
@@ -527,12 +532,12 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(SwapchainImages,  //
 //------------------------------------------------------------------------------
 namespace internal {
 template <typename HandleType, typename HandleOpenInfoType, auto OpenHandle>
-inline ::VkResult open_handle_default_adapter(const HandleOpenInfoType& info,
-                                              HandleType& handle) {
+inline auto open_handle_default_adapter(const HandleOpenInfoType& info,
+                                        HandleType& handle) -> ::VkResult {
   return OpenHandle(std::addressof(info), ALLOCATOR, std::addressof(handle));
 }
 template <typename HandleType, auto CloseHandle>
-inline void close_handle_default_adapter(const HandleType& handle) {
+inline auto close_handle_default_adapter(const HandleType& handle) -> void {
   CloseHandle(handle, ALLOCATOR);
 }
 
@@ -556,7 +561,7 @@ class HandleBase {
       : handle_{std::exchange(that.handle_, nullptr)},
         info_{std::move(that.info_)} {}
 
-  HandleBase& operator=(HandleBase&& that) noexcept {
+  auto operator=(HandleBase&& that) noexcept -> HandleBase& {
     if (this != &that) {
       if (handle_) {
         CloseHandle(handle_);
@@ -591,8 +596,8 @@ class HandleBase {
   explicit operator bool() const { return handle_; }
   operator HandleType() const { return handle_; }
 
-  const HandleType& handle() const { return handle_; }
-  const HandleOpenInfoType& info() const { return info_(); }
+  auto handle() const -> const HandleType& { return handle_; }
+  auto info() const -> const HandleOpenInfoType& { return info_(); }
 
  private:
   HandleType handle_{};
@@ -623,17 +628,19 @@ template <typename ParentType,          //
           typename HandleType,          //
           typename HandleOpenInfoType,  //
           auto OpenHandle>
-inline ::VkResult open_parented_handle_default_adapter(
-    const ParentType& parent, const HandleOpenInfoType& info,
-    HandleType& handle) {
+inline auto open_parented_handle_default_adapter(const ParentType& parent,
+                                                 const HandleOpenInfoType& info,
+                                                 HandleType& handle)
+    -> ::VkResult {
   return OpenHandle(parent, std::addressof(info), ALLOCATOR,
                     std::addressof(handle));
 }
 template <typename ParentType,  //
           typename HandleType,  //
           auto CloseHandle>
-inline void close_parented_handle_default_adapter(const ParentType& parent,
-                                                  const HandleType& handle) {
+inline auto close_parented_handle_default_adapter(const ParentType& parent,
+                                                  const HandleType& handle)
+    -> void {
   CloseHandle(parent, handle, ALLOCATOR);
 }
 
@@ -659,7 +666,7 @@ class ParentedHandleBase {
         handle_{std::exchange(that.handle_, nullptr)},
         info_{std::move(that.info_)} {}
 
-  ParentedHandleBase& operator=(ParentedHandleBase&& that) noexcept {
+  auto operator=(ParentedHandleBase&& that) noexcept -> ParentedHandleBase& {
     if (this != &that) {
       if (handle_) {
         CloseHandle(parent_, handle_);
@@ -700,10 +707,10 @@ class ParentedHandleBase {
   explicit operator bool() const { return parent_ && handle_; }
   operator HandleType() const { return handle_; }
 
-  const ParentType& parent() const { return parent_; }
-  const HandleType& handle() const { return handle_; }
+  auto parent() const -> const ParentType& { return parent_; }
+  auto handle() const -> const HandleType& { return handle_; }
 
-  const HandleOpenInfoType& info() const { return info_(); }
+  auto info() const -> const HandleOpenInfoType& { return info_(); }
 
  private:
   ParentType parent_ = VK_NULL_HANDLE;
@@ -746,8 +753,8 @@ using InstanceBase =                      //
         ::vkDestroyInstance>;
 
 namespace internal {
-inline void end_device_adapter(::VkPhysicalDevice /*physical*/,
-                               ::VkDevice device) {
+inline auto end_device_adapter(::VkPhysicalDevice /*physical*/,
+                               ::VkDevice device) -> void {
   // This runs from a destructor, so it must not throw. A lost device fails the
   // wait but must still be destroyed.
   [[maybe_unused]] ::VkResult result = ::vkDeviceWaitIdle(device);
@@ -808,23 +815,23 @@ struct QueueIndex final {
   std::uint32_t family_index = std::numeric_limits<std::uint32_t>::max();
   std::uint32_t index = std::numeric_limits<std::uint32_t>::max();
 
-  QueueIndex& operator()() noexcept { return *this; };
-  const QueueIndex& operator()() const noexcept { return *this; };
+  auto operator()() noexcept -> QueueIndex& { return *this; };
+  auto operator()() const noexcept -> const QueueIndex& { return *this; };
 
-  QueueIndex* address() noexcept { return this; }
-  const QueueIndex* address() const noexcept { return this; }
+  auto address() noexcept -> QueueIndex* { return this; }
+  auto address() const noexcept -> const QueueIndex* { return this; }
 };
 
 namespace internal {
-inline ::VkResult begin_device_queue_adapter(  //
-    ::VkDevice device,                         //
-    QueueIndex queue,                          //
-    ::VkQueue& handle) {
+inline auto begin_device_queue_adapter(  //
+    ::VkDevice device,                   //
+    QueueIndex queue,                    //
+    ::VkQueue& handle) -> ::VkResult {
   ::vkGetDeviceQueue(device, queue.family_index, queue.index,
                      std::addressof(handle));
   return VK_SUCCESS;
 }
-inline void end_device_queue_adapter(::VkDevice, ::VkQueue) {}
+inline auto end_device_queue_adapter(::VkDevice, ::VkQueue) -> void {}
 }  // namespace internal
 
 using QueueBase =                              //
@@ -837,12 +844,12 @@ using QueueBase =                              //
         internal::end_device_queue_adapter>;
 
 namespace internal {
-inline ::VkResult begin_command_buffer_adapter(  //
-    const ::VkCommandBufferBeginInfo& info,      //
-    ::VkCommandBuffer handle) {
+inline auto begin_command_buffer_adapter(    //
+    const ::VkCommandBufferBeginInfo& info,  //
+    ::VkCommandBuffer handle) -> ::VkResult {
   return ::vkBeginCommandBuffer(handle, std::addressof(info));
 }
-inline void end_command_buffer_adapter(::VkCommandBuffer handle) {
+inline auto end_command_buffer_adapter(::VkCommandBuffer handle) -> void {
   ::vkEndCommandBuffer(handle);
 }
 }  // namespace internal
@@ -910,7 +917,8 @@ using SwapchainBase =                             //
         ::vkDestroySwapchainKHR>;
 
 namespace internal {
-inline ::VkResult begin_surface_adapter(::VkInstance, Empty, ::VkSurfaceKHR) {
+inline auto begin_surface_adapter(::VkInstance, Empty, ::VkSurfaceKHR)
+    -> ::VkResult {
   CHECK_UNREACHABLE();
   return VK_SUCCESS;
 }
@@ -938,10 +946,10 @@ using FramebufferBase =                           //
         ::vkDestroyFramebuffer>;
 
 namespace internal {
-inline ::VkResult create_graphics_pipeline_adapter(
+inline auto create_graphics_pipeline_adapter(
     ::VkDevice device,                           //
     const ::VkGraphicsPipelineCreateInfo& info,  //
-    ::VkPipeline& handle) {
+    ::VkPipeline& handle) -> ::VkResult {
   return ::vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1,
                                      std::addressof(info), ALLOCATOR,
                                      std::addressof(handle));
@@ -983,13 +991,14 @@ DERIVE_FINAL_WITH_CONSTRUCTORS(GraphicsPipeline, GraphicsPipelineBase);
 //------------------------------------------------------------------------------
 
 namespace internal {
-inline ::VkResult begin_render_pass_command_adapter(
-    const ::VkRenderPassBeginInfo& info, ::VkCommandBuffer handle) {
+inline auto begin_render_pass_command_adapter(
+    const ::VkRenderPassBeginInfo& info, ::VkCommandBuffer handle)
+    -> ::VkResult {
   ::vkCmdBeginRenderPass(handle, std::addressof(info),
                          VK_SUBPASS_CONTENTS_INLINE);
   return VK_SUCCESS;
 }
-inline void end_render_pass_command_adapter(::VkCommandBuffer handle) {
+inline auto end_render_pass_command_adapter(::VkCommandBuffer handle) -> void {
   ::vkCmdEndRenderPass(handle);
 }
 }  // namespace internal
@@ -1008,13 +1017,14 @@ class RenderPassCommandBuilder final : public RenderPassCommandBuilderBase {
  public:
   using BaseType::BaseType;
 
-  void bind_pipeline(::VkPipeline pipeline) {
+  auto bind_pipeline(::VkPipeline pipeline) -> void {
     ::vkCmdBindPipeline(handle(), VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
   }
 
-  void bind_vertex_buffers(std::uint32_t vertex_buffer_binding,
+  auto bind_vertex_buffers(std::uint32_t vertex_buffer_binding,
                            std::span<::VkBuffer> vertex_buffers,
-                           std::span<::VkDeviceSize> vertex_buffer_offsets) {
+                           std::span<::VkDeviceSize> vertex_buffer_offsets)
+      -> void {
     CHECK_PRECONDITION(vertex_buffers.size() == vertex_buffer_offsets.size());
     ::vkCmdBindVertexBuffers(
         handle(),                                           //
@@ -1024,8 +1034,9 @@ class RenderPassCommandBuilder final : public RenderPassCommandBuilderBase {
         vertex_buffer_offsets.data());
   }
 
-  void draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1,
-            std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0) {
+  auto draw(std::uint32_t vertex_count, std::uint32_t instance_count = 1,
+            std::uint32_t first_vertex = 0, std::uint32_t first_instance = 0)
+      -> void {
     ::vkCmdDraw(handle(), vertex_count, instance_count, first_vertex,
                 first_instance);
   }
@@ -1050,7 +1061,7 @@ class CommandBufferBlock final {
         block_{std::move(that.block_)},
         info_{std::move(that.info_)} {}
 
-  CommandBufferBlock& operator=(CommandBufferBlock&& that) noexcept {
+  auto operator=(CommandBufferBlock&& that) noexcept -> CommandBufferBlock& {
     if (this != &that) {
       if (block_.size()) {
         ::vkFreeCommandBuffers(device_, pool_, block_.size(), block_.data());
@@ -1076,9 +1087,9 @@ class CommandBufferBlock final {
 
   explicit operator bool() const { return device_ != VK_NULL_HANDLE; }
 
-  const ::VkCommandBufferAllocateInfo& info() const { return info_(); }
+  auto info() const -> const ::VkCommandBufferAllocateInfo& { return info_(); }
 
-  void acquire_command_buffers(std::uint32_t next_count) {
+  auto acquire_command_buffers(std::uint32_t next_count) -> void {
     auto curr_count = narrow_cast<std::uint32_t>(block_.size());
     if (curr_count < next_count) {
       block_.resize(next_count);
@@ -1100,7 +1111,7 @@ class CommandBufferBlock final {
     }
   }
 
-  ::VkCommandBuffer operator[](std::uint32_t index) const {
+  auto operator[](std::uint32_t index) const -> ::VkCommandBuffer {
     CHECK_PRECONDITION(index < block_.size());
     return block_[index];
   }
@@ -1114,33 +1125,32 @@ class CommandBufferBlock final {
 
 //------------------------------------------------------------------------------
 
-inline bool has_any_flags(::VkFlags flags, ::VkFlags query) {
+inline auto has_any_flags(::VkFlags flags, ::VkFlags query) -> bool {
   return (flags & query);
 }
 
-inline bool has_all_flags(::VkFlags flags, ::VkFlags query) {
+inline auto has_all_flags(::VkFlags flags, ::VkFlags query) -> bool {
   return (flags & query) == query;
 }
 
 template <typename EnumerationType>
-inline EnumerationType find_first_flag(::VkFlags flags,
-                                       std::vector<EnumerationType> query,
-                                       EnumerationType otherwise) {
+inline auto find_first_flag(::VkFlags flags, std::vector<EnumerationType> query,
+                            EnumerationType otherwise) -> EnumerationType {
   auto iter = std::find_if(query.begin(), query.end(),
                            [flags](auto _) { return flags & _; });
   return iter != query.end() ? *iter : otherwise;
 }
 
-inline bool has_string_name(const std::vector<const char*>& names,
-                            std::string_view target) {
+inline auto has_string_name(const std::vector<const char*>& names,
+                            std::string_view target) -> bool {
   return std::any_of(names.begin(), names.end(), [target](const char* name) {
     return static_cast<std::string_view>(name) == target;
   });
 }
 
-inline bool has_layer_property(                            //
+inline auto has_layer_property(                            //
     const std::span<::VkLayerProperties>& properties,      //
-    std::string_view layer_name) {                         //
+    std::string_view layer_name) -> bool {                 //
   return std::any_of(                                      //
       properties.begin(), properties.end(),                //
       [layer_name](const ::VkLayerProperties& property) {  //
@@ -1148,9 +1158,9 @@ inline bool has_layer_property(                            //
       });
 }
 
-inline bool has_extension_property(                                //
+inline auto has_extension_property(                                //
     const std::span<::VkExtensionProperties>& properties,          //
-    std::string_view extension_name) {                             //
+    std::string_view extension_name) -> bool {                     //
   return std::any_of(                                              //
       properties.begin(), properties.end(),                        //
       [extension_name](const ::VkExtensionProperties& property) {  //
@@ -1160,8 +1170,8 @@ inline bool has_extension_property(                                //
 }
 
 template <typename TargetFunctionPointer>
-inline void load_instance_function(const char* name, ::VkInstance instance,
-                                   Out<TargetFunctionPointer> target) {
+inline auto load_instance_function(const char* name, ::VkInstance instance,
+                                   Out<TargetFunctionPointer> target) -> void {
   CHECK_PRECONDITION(instance != VK_NULL_HANDLE);
   CHECK_PRECONDITION(name != nullptr);
   *target = reinterpret_cast<TargetFunctionPointer>(
@@ -1188,7 +1198,7 @@ class DebugMessenger final {
         create_{std::exchange(that.create_, nullptr)},
         destroy_{std::exchange(that.destroy_, nullptr)} {}
 
-  DebugMessenger& operator=(DebugMessenger&& that) noexcept {
+  auto operator=(DebugMessenger&& that) noexcept -> DebugMessenger& {
     if (this != &that) {
       if (handle_ != VK_NULL_HANDLE) {
         destroy_(instance_, handle_, ALLOCATOR);
@@ -1239,8 +1249,8 @@ class DebugMessenger final {
 
 //------------------------------------------------------------------------------
 
-inline std::string_view convert_to_string(
-    ::VkDebugUtilsMessageSeverityFlagBitsEXT _) {
+inline auto convert_to_string(::VkDebugUtilsMessageSeverityFlagBitsEXT _)
+    -> std::string_view {
   switch (_) {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
       return "VERB";
@@ -1257,7 +1267,7 @@ inline std::string_view convert_to_string(
   return "UNKNOWN";
 }
 
-inline std::string_view convert_to_string(::VkPhysicalDeviceType _) {
+inline auto convert_to_string(::VkPhysicalDeviceType _) -> std::string_view {
   switch (_) {
     case VK_PHYSICAL_DEVICE_TYPE_OTHER:
       return "VK_PHYSICAL_DEVICE_TYPE_OTHER";
@@ -1276,7 +1286,7 @@ inline std::string_view convert_to_string(::VkPhysicalDeviceType _) {
   return "UNKNOWN";
 }
 
-inline std::string_view convert_to_string(::VkQueueFlagBits _) {
+inline auto convert_to_string(::VkQueueFlagBits _) -> std::string_view {
   switch (_) {
     case VK_QUEUE_GRAPHICS_BIT:
       return "VK_QUEUE_GRAPHICS_BIT";
@@ -1299,7 +1309,7 @@ inline std::string_view convert_to_string(::VkQueueFlagBits _) {
   return "UNKNOWN";
 }
 
-inline std::string convert_to_string(::VkQueueFlags flags) {
+inline auto convert_to_string(::VkQueueFlags flags) -> std::string {
   std::stringstream stream;
   for (auto bit :
        {VK_QUEUE_GRAPHICS_BIT, VK_QUEUE_COMPUTE_BIT, VK_QUEUE_TRANSFER_BIT,
@@ -1313,7 +1323,7 @@ inline std::string convert_to_string(::VkQueueFlags flags) {
   return std::move(stream).str();
 }
 
-inline std::string_view convert_to_string(::VkFormat _) {
+inline auto convert_to_string(::VkFormat _) -> std::string_view {
   switch (_) {
     case VK_FORMAT_UNDEFINED:
       return "VK_FORMAT_UNDEFINED";
@@ -1800,7 +1810,7 @@ inline std::string_view convert_to_string(::VkFormat _) {
   return "UNKNOWN";
 }
 
-inline std::string_view convert_to_string(::VkPresentModeKHR _) {
+inline auto convert_to_string(::VkPresentModeKHR _) -> std::string_view {
   switch (_) {
     case VK_PRESENT_MODE_IMMEDIATE_KHR:
       return "VK_PRESENT_MODE_IMMEDIATE_KHR";

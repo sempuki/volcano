@@ -130,7 +130,7 @@ struct SwapchainRenderContext final {
   std::vector<Semaphore> image_acquired;
 };
 
-int main() {
+auto main() -> int {
   std::cout << "Hello world " << std::endl;
 
   const float vertex_scale = 1.6f;

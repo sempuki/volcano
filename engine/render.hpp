@@ -13,9 +13,9 @@ class Renderer {
   Renderer() = default;
 
   virtual ~Renderer() = default;
-  virtual bool HasSwapchain() const = 0;
-  virtual void RecreateSwapchain(::VkExtent2D geometry) = 0;
-  virtual void Render() = 0;
+  virtual auto HasSwapchain() const -> bool = 0;
+  virtual auto RecreateSwapchain(::VkExtent2D geometry) -> void = 0;
+  virtual auto Render() -> void = 0;
 };
 
 }  // namespace volcano

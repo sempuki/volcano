@@ -46,13 +46,13 @@ class Queue final {
 
   operator ::VkQueue() const { return queue_.handle(); }
 
-  std::uint32_t family_index() const { return index_.family_index; }
+  auto family_index() const -> std::uint32_t { return index_.family_index; }
 
-  void submit(::VkCommandBuffer command_buffer,             //
+  auto submit(::VkCommandBuffer command_buffer,             //
               ::VkPipelineStageFlags wait_pipeline_stages,  //
               ::VkSemaphore wait_semaphore,                 //
               ::VkSemaphore signal_semaphore,               //
-              ::VkFence maybe_signal_fence = VK_NULL_HANDLE) {
+              ::VkFence maybe_signal_fence = VK_NULL_HANDLE) -> void {
     vk::SubmitInfo submit_info{::VkSubmitInfo{
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = std::addressof(wait_semaphore),
@@ -115,15 +115,15 @@ class Fence final {
 
   operator ::VkFence() const { return fence_.handle(); }
 
-  void wait(
-      std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) {
+  auto wait(std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max())
+      -> void {
     ::VkResult result =
         ::vkWaitForFences(fence_.parent(), 1, std::addressof(fence_.handle()),
                           VK_TRUE, timeout.count());
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
-  void reset() {
+  auto reset() -> void {
     ::VkResult result =
         ::vkResetFences(fence_.parent(), 1, std::addressof(fence_.handle()));
     CHECK_POSTCONDITION(result == VK_SUCCESS);
@@ -177,7 +177,7 @@ class DeviceMemory final {
   DeviceMemory() = delete;
   ~DeviceMemory() = default;
 
-  void copy_initialize(std::span<const std::byte> data) {
+  auto copy_initialize(std::span<const std::byte> data) -> void {
     CHECK_PRECONDITION(data.size() <= memory_.info().allocationSize);
     CHECK_PRECONDITION(host_bytes_);
 
@@ -230,16 +230,16 @@ class RenderPassCommandBuilder final {
 
   operator ::VkCommandBuffer() const { return builder_.handle(); }
 
-  void bind(::VkPipeline pipeline) { builder_.bind_pipeline(pipeline); }
+  auto bind(::VkPipeline pipeline) -> void { builder_.bind_pipeline(pipeline); }
 
-  void bind(std::uint32_t vertex_buffer_binding,
+  auto bind(std::uint32_t vertex_buffer_binding,
             std::span<::VkBuffer> vertex_buffers,
-            std::span<::VkDeviceSize> vertex_buffer_offsets) {
+            std::span<::VkDeviceSize> vertex_buffer_offsets) -> void {
     builder_.bind_vertex_buffers(vertex_buffer_binding, vertex_buffers,
                                  vertex_buffer_offsets);
   }
 
-  void draw(std::uint32_t vertex_count) { builder_.draw(vertex_count); }
+  auto draw(std::uint32_t vertex_count) -> void { builder_.draw(vertex_count); }
 
  private:
   friend class CommandBufferBlock;
@@ -281,15 +281,15 @@ class CommandBufferBlock final {
   CommandBufferBlock() = delete;
   ~CommandBufferBlock() = default;
 
-  void acquire_command_buffers(std::uint32_t count) {
+  auto acquire_command_buffers(std::uint32_t count) -> void {
     command_buffers_.acquire_command_buffers(count);
   }
 
-  RenderPassCommandBuilder create_render_pass_command_builder(
+  auto create_render_pass_command_builder(
       std::uint32_t command_buffer_index,  //
       ::VkRenderPass render_pass,          //
       ::VkFramebuffer framebuffer,         //
-      ::VkExtent2D framebuffer_extent) {
+      ::VkExtent2D framebuffer_extent) -> RenderPassCommandBuilder {
     return RenderPassCommandBuilder{command_buffers_[command_buffer_index],  //
                                     render_pass,                             //
                                     framebuffer,                             //
@@ -323,7 +323,7 @@ class CommandPool final {
 
   operator ::VkCommandPool() const { return command_pool_.handle(); }
 
-  void reset() {
+  auto reset() -> void {
     ::VkResult result =
         ::vkResetCommandPool(command_pool_.parent(), command_pool_.handle(), 0);
     CHECK_POSTCONDITION(result == VK_SUCCESS);
@@ -388,7 +388,7 @@ class Framebuffer final {
   ~Framebuffer() = default;
 
   operator ::VkFramebuffer() const { return framebuffer_.handle(); }
-  ::VkExtent2D extent() const { return extent_; }
+  auto extent() const -> ::VkExtent2D { return extent_; }
 
  private:
   friend class Device;
@@ -731,8 +731,8 @@ class ShaderModule final {
 
 // One more image than the minimum, so acquiring does not wait on the driver,
 // but no more than the maximum. A maximum of 0 means there is no limit.
-inline std::uint32_t choose_swapchain_image_count(
-    const ::VkSurfaceCapabilitiesKHR& capabilities) {
+inline auto choose_swapchain_image_count(
+    const ::VkSurfaceCapabilitiesKHR& capabilities) -> std::uint32_t {
   std::uint32_t count = capabilities.minImageCount + 1;
   if (capabilities.maxImageCount > 0) {
     count = std::min(count, capabilities.maxImageCount);
@@ -751,9 +751,9 @@ class Swapchain final {
 
   operator ::VkSwapchainKHR() const { return swapchain_.handle(); }
 
-  ::VkExtent2D extent() const { return extent_; }
+  auto extent() const -> ::VkExtent2D { return extent_; }
 
-  std::vector<::VkImageView> create_image_views() {
+  auto create_image_views() -> std::vector<::VkImageView> {
     std::vector<::VkImageView> result;
     for (auto&& image_view : image_views_) {
       result.push_back(image_view);
@@ -763,10 +763,11 @@ class Swapchain final {
 
   // Returns no index when the swapchain is out of date or the surface is lost.
   // In that case nothing was acquired and no semaphore or fence is signaled.
-  std::optional<std::uint32_t> acquire_next_image(
+  auto acquire_next_image(
       ::VkSemaphore maybe_signal_semaphore = VK_NULL_HANDLE,
       ::VkFence maybe_signal_fence = VK_NULL_HANDLE,
-      std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max()) {
+      std::chrono::nanoseconds timeout = std::chrono::nanoseconds::max())
+      -> std::optional<std::uint32_t> {
     std::uint32_t next_image_index = 0;
 
     ::VkResult result = ::vkAcquireNextImageKHR(  //
@@ -789,9 +790,9 @@ class Swapchain final {
     return next_image_index;
   }
 
-  void present(std::uint32_t image_index,  //
+  auto present(std::uint32_t image_index,  //
                ::VkQueue queue,            //
-               ::VkSemaphore wait_semaphore) {
+               ::VkSemaphore wait_semaphore) -> void {
     vk::PresentInfo present_info{::VkPresentInfoKHR{
         .waitSemaphoreCount = 1,
         .pWaitSemaphores = std::addressof(wait_semaphore),
@@ -880,8 +881,9 @@ class Swapchain final {
 // The surface's current extent, or, where the surface leaves the size to the
 // swapchain (0xFFFFFFFF, e.g. Wayland), the requested size clamped to what the
 // surface supports.
-inline ::VkExtent2D choose_swapchain_extent(
-    const ::VkSurfaceCapabilitiesKHR& capabilities, ::VkExtent2D requested) {
+inline auto choose_swapchain_extent(
+    const ::VkSurfaceCapabilitiesKHR& capabilities, ::VkExtent2D requested)
+    -> ::VkExtent2D {
   if (capabilities.currentExtent.width !=
       std::numeric_limits<std::uint32_t>::max()) {
     return capabilities.currentExtent;
@@ -903,18 +905,18 @@ class Device final {
   Device() = delete;
   ~Device() = default;
 
-  void wait_for_idle() {
+  auto wait_for_idle() -> void {
     ::VkResult result = ::vkDeviceWaitIdle(device_);
     CHECK_POSTCONDITION(result == VK_SUCCESS);
   }
 
-  Queue create_queue() {
+  auto create_queue() -> Queue {
     CHECK_PRECONDITION(queue_families_.size() == 1);
     return Queue{device_, queue_families_.front(), 0u};
   }
 
-  Buffer create_buffer(::VkDeviceSize requested_byte_count,
-                       ::VkBufferUsageFlags requested_buffer_usage) {
+  auto create_buffer(::VkDeviceSize requested_byte_count,
+                     ::VkBufferUsageFlags requested_buffer_usage) -> Buffer {
     return Buffer{
         device_,
         requested_byte_count,
@@ -922,8 +924,9 @@ class Device final {
     };
   }
 
-  DeviceMemory allocate_device_memory(
-      const Buffer& buffer, ::VkMemoryPropertyFlags required_memory_flags) {
+  auto allocate_device_memory(const Buffer& buffer,
+                              ::VkMemoryPropertyFlags required_memory_flags)
+      -> DeviceMemory {
     bool found = false;
 
     std::uint32_t memory_type_index = 0;
@@ -948,16 +951,17 @@ class Device final {
                         buffer};
   }
 
-  CommandBufferBlock allocate_command_buffer_block(::VkCommandPool command_pool,
-                                                   std::uint32_t count) {
+  auto allocate_command_buffer_block(::VkCommandPool command_pool,
+                                     std::uint32_t count)
+      -> CommandBufferBlock {
     return CommandBufferBlock{device_, command_pool, count};
   }
 
-  CommandPool create_command_pool(std::uint32_t queue_family_index) {
+  auto create_command_pool(std::uint32_t queue_family_index) -> CommandPool {
     return CommandPool{device_, queue_family_index};
   }
 
-  RenderPass create_render_pass(::VkFormat requested) {
+  auto create_render_pass(::VkFormat requested) -> RenderPass {
     ::VkPhysicalDevice phys_device = device_.parent();
     vk::PhysicalDeviceSurfaceFormats surface_formats{phys_device, surface_};
 
@@ -971,9 +975,9 @@ class Device final {
   }
 
   template <typename DoRecreateSwapchainType, typename DoRenderType>
-  std::unique_ptr<SurfaceRenderer> create_surface_renderer(  //
-      DoRecreateSwapchainType&& recreate_swapchain,          //
-      DoRenderType&& render) {
+  auto create_surface_renderer(                      //
+      DoRecreateSwapchainType&& recreate_swapchain,  //
+      DoRenderType&& render) -> std::unique_ptr<SurfaceRenderer> {
     ::VkPhysicalDevice phys_device = device_.parent();
     return std::make_unique<SurfaceRenderer>(                       //
         phys_device,                                                //
@@ -982,16 +986,16 @@ class Device final {
         std::forward<DoRenderType>(render));
   }
 
-  ShaderModule create_shader_module(
-      const std::vector<std::uint32_t>& shader_spirv_bin) {
+  auto create_shader_module(const std::vector<std::uint32_t>& shader_spirv_bin)
+      -> ShaderModule {
     return ShaderModule{device_, shader_spirv_bin};
   }
 
-  Swapchain create_swapchain(                     //
+  auto create_swapchain(                          //
       ::VkExtent2D requested_geometry,            //
       ::VkFormat requested_format,                //
       ::VkPresentModeKHR requested_present_mode,  //
-      ::VkSwapchainKHR previous_swapchain = VK_NULL_HANDLE) {
+      ::VkSwapchainKHR previous_swapchain = VK_NULL_HANDLE) -> Swapchain {
     ::VkPhysicalDevice phys_device = device_.parent();
     vk::PhysicalDeviceSurfaceFormats surface_formats{phys_device, surface_};
     vk::PhysicalDeviceSurfacePresentModes surface_present_modes{phys_device,
@@ -1020,9 +1024,9 @@ class Device final {
         previous_swapchain};
   }
 
-  std::vector<Framebuffer> create_framebuffers(
-      ::VkRenderPass render_pass, std::span<::VkImageView> image_views,
-      ::VkExtent2D extent) {
+  auto create_framebuffers(::VkRenderPass render_pass,
+                           std::span<::VkImageView> image_views,
+                           ::VkExtent2D extent) -> std::vector<Framebuffer> {
     std::vector<Framebuffer> result;
     for (auto&& image_view : image_views) {
       result.push_back(Framebuffer{device_, render_pass, image_view, extent});
@@ -1030,15 +1034,15 @@ class Device final {
     return result;
   }
 
-  PipelineLayout create_pipeline_layout() {
+  auto create_pipeline_layout() -> PipelineLayout {
     return PipelineLayout{device_};  //
   }
 
-  GraphicsPipeline create_graphics_pipeline(::VkShaderModule vertex_shader,
-                                            ::VkShaderModule fragment_shader,
-                                            ::VkPipelineLayout pipeline_layout,
-                                            ::VkRenderPass render_pass,
-                                            ::VkExtent2D extent) {
+  auto create_graphics_pipeline(::VkShaderModule vertex_shader,
+                                ::VkShaderModule fragment_shader,
+                                ::VkPipelineLayout pipeline_layout,
+                                ::VkRenderPass render_pass, ::VkExtent2D extent)
+      -> GraphicsPipeline {
     return GraphicsPipeline{device_,          //
                             vertex_shader,    //
                             fragment_shader,  //
@@ -1047,7 +1051,7 @@ class Device final {
                             extent};
   }
 
-  std::vector<Semaphore> create_semaphores(std::uint32_t count) {
+  auto create_semaphores(std::uint32_t count) -> std::vector<Semaphore> {
     std::vector<Semaphore> result;
     for (std::uint32_t i = 0; i < count; ++i) {
       result.push_back(Semaphore{device_});
@@ -1055,8 +1059,8 @@ class Device final {
     return result;
   }
 
-  std::vector<Fence> create_fences(std::uint32_t count,
-                                   ::VkFenceCreateFlags flags = 0) {
+  auto create_fences(std::uint32_t count, ::VkFenceCreateFlags flags = 0)
+      -> std::vector<Fence> {
     std::vector<Fence> result;
     for (std::uint32_t i = 0; i < count; ++i) {
       result.push_back(Fence{device_, flags});
@@ -1147,7 +1151,7 @@ class Instance final {
 
   operator ::VkInstance() const { return instance_.handle(); }
 
-  Device create_presentation_device(::VkSurfaceKHR surface) {
+  auto create_presentation_device(::VkSurfaceKHR surface) -> Device {
     CHECK_PRECONDITION(surface != VK_NULL_HANDLE);
 
     std::vector<FindQueueFamilyResult> selected_result = select_queue_family_if(
@@ -1294,8 +1298,8 @@ class Instance final {
   };
 
   template <typename PredicateType>
-  std::vector<FindQueueFamilyResult> select_queue_family_if(
-      PredicateType&& predicate) {
+  auto select_queue_family_if(PredicateType&& predicate)
+      -> std::vector<FindQueueFamilyResult> {
     std::vector<FindQueueFamilyResult> result;
 
     for (auto&& phys_device : phys_devices_()) {
@@ -1344,8 +1348,8 @@ class Instance final {
   std::map<::VkPhysicalDevice, vk::DeviceExtensionProperties>
       supported_device_extension_properties_;
 
-  static ::VkDebugUtilsMessageSeverityFlagsEXT ConvertToDebugSeverity(
-      DebugLevel _) {
+  static auto ConvertToDebugSeverity(DebugLevel _)
+      -> ::VkDebugUtilsMessageSeverityFlagsEXT {
     switch (_) {
       case DebugLevel::NONE:
         return 0;
@@ -1368,10 +1372,10 @@ class Instance final {
     return {};
   }
 
-  static VKAPI_ATTR ::VkBool32 debug_messenger_callback(
+  static VKAPI_ATTR auto debug_messenger_callback(
       ::VkDebugUtilsMessageSeverityFlagBitsEXT message_severity,
       ::VkDebugUtilsMessageTypeFlagsEXT /*message_type*/,
-      const ::VkDebugUtilsMessengerCallbackDataEXT* data, void*) {
+      const ::VkDebugUtilsMessengerCallbackDataEXT* data, void*) -> ::VkBool32 {
     CHECK_PRECONDITION(
         data->sType ==
         VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CALLBACK_DATA_EXT);
@@ -1427,9 +1431,9 @@ class Application final {
     application_info_().apiVersion = VK_API_VERSION_1_3;
   }
 
-  Instance create_instance(std::span<const char*> requested_layers = {},
-                           std::span<const char*> requested_extensions = {},
-                           DebugLevel debug_level = DebugLevel::NONE) {
+  auto create_instance(std::span<const char*> requested_layers = {},
+                       std::span<const char*> requested_extensions = {},
+                       DebugLevel debug_level = DebugLevel::NONE) -> Instance {
     std::vector<const char*> layers{requested_layers.begin(),
                                     requested_layers.end()};
     std::vector<const char*> extensions{requested_extensions.begin(),
