@@ -1,1 +1,3 @@
 2nd_party/lib
+# The clangd mirror, which 2nd_party/lib/bazel/lsp_mirror.py builds.
+.lsp

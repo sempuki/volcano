@@ -26,9 +26,19 @@ Code targets C++26; flags come from `@lib//bazel:copts.bzl`.
 
 ## Editor setup
 
-clangd needs a `compile_commands.json`. Generate it from the workspace root,
-and again after adding files, targets or dependencies:
+clangd needs a `compile_commands.json`, and the headers it names must stay put.
+Bazel's execution root does not: every build relinks it to only the external
+repositories that build needed. lib's `bazel/lsp_mirror.py` builds in an output
+base of its own, copies the headers clangd reads into `.lsp/mirror/` (ignored
+by git and Bazel), and writes `compile_commands.json` against that mirror, so
+builds and compiler switches never disturb your editor:
 
 ```sh
-python3 2nd_party/lib/bazel/compile_commands.py
+python3 2nd_party/lib/bazel/lsp_mirror.py                  # build the mirror now
+python3 2nd_party/lib/bazel/lsp_mirror.py --if-stale       # only if anything changed
+python3 2nd_party/lib/bazel/lsp_mirror.py --watch 60       # check every minute
+python3 2nd_party/lib/bazel/lsp_mirror.py --install-hooks  # after checkout, merge, rebase
 ```
+
+`--if-stale` takes a fraction of a second when nothing changed, so it is cheap
+to run often. Restart clangd (`:LspRestart` in Neovim) after the first build.
