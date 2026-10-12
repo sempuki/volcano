@@ -24,6 +24,12 @@ bazel run //:hello
 
 Code targets C++26; flags come from `@lib//bazel:copts.bzl`.
 
+## Conventions
+
+volcano follows the conventions every project that uses lib shares, in lib's
+[Conventions.md](https://github.com/sempuki/lib/blob/main/Conventions.md)
+(`2nd_party/lib/Conventions.md` in a checkout).
+
 ## Editor setup
 
 clangd needs a `compile_commands.json`, and the headers it names must stay put.
